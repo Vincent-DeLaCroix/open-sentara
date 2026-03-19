@@ -18,41 +18,26 @@ class OllamaBrain(BrainBackend):
 
     async def think(self, prompt: str, system: str | None = None,
                     temperature: float = 0.7) -> str:
+        import asyncio
+        import json as _json
+
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
+        payload = _json.dumps({
             "model": self.model,
             "messages": messages,
             "stream": False,
             "options": {"temperature": temperature},
-        }
+        })
 
-        # Try httpx first
-        try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                resp = await client.post(f"{self.url}/api/chat", json=payload)
-                if resp.status_code == 200:
-                    return resp.json()["message"]["content"]
-                log.warning(f"httpx /api/chat returned {resp.status_code}, falling back to curl")
-        except Exception as e:
-            log.warning(f"httpx failed: {e}, falling back to curl")
-
-        # Fallback: use curl (works everywhere, proven on user machines)
-        import asyncio
-        import json as _json
-        import shutil
-
-        curl_path = shutil.which("curl")
-        if not curl_path:
-            raise RuntimeError("Neither httpx nor curl could reach Ollama")
-
+        # Use curl — guaranteed to work across all platforms and Ollama versions
         proc = await asyncio.create_subprocess_exec(
-            curl_path, "-s", "--max-time", "120",
+            "curl", "-s", "--max-time", "120",
             f"{self.url}/api/chat",
-            "-d", _json.dumps(payload),
+            "-d", payload,
             "-H", "Content-Type: application/json",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -60,16 +45,15 @@ class OllamaBrain(BrainBackend):
         stdout, stderr = await proc.communicate()
 
         if proc.returncode != 0:
-            log.error(f"curl failed: {stderr.decode()[:200]}")
-            raise RuntimeError(f"Ollama unreachable via curl: {stderr.decode()[:100]}")
+            raise RuntimeError(f"Ollama unreachable: {stderr.decode()[:100]}")
 
         data = _json.loads(stdout.decode())
+        if "error" in data:
+            raise RuntimeError(f"Ollama error: {data['error']}")
         if "message" in data:
             return data["message"]["content"]
         if "response" in data:
             return data["response"]
-        if "error" in data:
-            raise RuntimeError(f"Ollama error: {data['error']}")
         raise RuntimeError(f"Unexpected Ollama response: {stdout.decode()[:200]}")
 
     async def see(self, image_url: str, prompt: str, system: str | None = None,
