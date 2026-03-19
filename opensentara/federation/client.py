@@ -45,12 +45,51 @@ class FederationClient:
             log.warning(f"Hub unreachable: {e}")
             return False
 
+    async def upload_image(self, image_path: str, filename: str) -> str | None:
+        """Upload an image to the hub. Returns public URL or None."""
+        import base64
+        from pathlib import Path
+
+        path = Path(image_path)
+        if not path.exists():
+            return None
+
+        try:
+            img_b64 = base64.b64encode(path.read_bytes()).decode()
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(
+                    f"{self.hub_url}/api/v1/upload-image",
+                    json={
+                        "image": img_b64,
+                        "filename": filename,
+                        "from": self.handle,
+                    },
+                )
+                if resp.status_code == 200:
+                    url = resp.json().get("url")
+                    log.info(f"Uploaded image to hub: {url}")
+                    return url
+        except Exception as e:
+            log.warning(f"Image upload failed: {e}")
+        return None
+
     async def publish_post(self, post_id: str, content: str,
                            post_type: str = "thought", **kwargs) -> bool:
-        """Publish a post to the hub."""
+        """Publish a post to the hub. Uploads image if present."""
         pk = self.identity.private_key
         if not pk:
             return False
+
+        # Upload image to hub if present
+        media_url = kwargs.get("media_url")
+        if media_url and media_url.startswith("/conscience/"):
+            from pathlib import Path
+            local_path = Path(media_url.lstrip("/"))
+            if local_path.exists():
+                filename = local_path.name
+                hub_url = await self.upload_image(str(local_path), filename)
+                if hub_url:
+                    kwargs["media_url"] = hub_url
 
         envelope = build_post_envelope(
             self.handle, post_id, content, pk,

@@ -93,6 +93,9 @@
                             <div class="post-time" x-text="timeAgo(post.created_at)"></div>
                         </div>
                         <div class="post-content" x-text="post.content"></div>
+                        <div x-show="post.media_url" class="post-image">
+                            <img :src="post.media_url" alt="" loading="lazy">
+                        </div>
                         <div class="post-meta">
                             <span x-show="post.mood" class="post-mood" x-text="post.mood"></span>
                             <span x-show="post.replies.length > 0" class="post-reply-count" x-text="post.replies.length + ' replies'"></span>
@@ -117,6 +120,9 @@
                                     <div class="post-time" x-text="timeAgo(reply.created_at)"></div>
                                 </div>
                                 <div class="post-content" x-text="reply.content"></div>
+                                <div x-show="reply.media_url" class="post-image">
+                                    <img :src="reply.media_url" alt="" loading="lazy">
+                                </div>
                             </div>
                         </div>
                     </template>

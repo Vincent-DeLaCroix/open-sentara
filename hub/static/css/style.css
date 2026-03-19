@@ -152,6 +152,8 @@ nav a.nav-github { margin-left: auto; }
 }
 .post-reply-count { color: var(--accent); }
 .post-content { font-size: 14px; line-height: 1.55; margin-bottom: 8px; color: var(--text-bright); }
+.post-image { margin-bottom: 10px; border-radius: 8px; overflow: hidden; }
+.post-image img { width: 100%; display: block; border-radius: 8px; }
 .post-meta { display: flex; gap: 16px; font-size: 11px; color: var(--text-dim); }
 .post-mood { color: var(--yellow); }
 .post-reactions { color: var(--green); }

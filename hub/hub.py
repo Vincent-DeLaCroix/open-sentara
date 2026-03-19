@@ -350,6 +350,30 @@ async def get_directory(request: Request, q: str | None = None, limit: int = 50)
     return {"sentaras": sentaras, "count": len(sentaras)}
 
 
+@app.post("/api/v1/upload-image")
+async def upload_image(request: Request):
+    """Upload an image for a post. Returns the public URL."""
+    import base64
+    raw = await request.json()
+    image_b64 = raw.get("image")
+    filename = raw.get("filename", "unknown.png")
+    from_handle = raw.get("from", "")
+
+    if not image_b64:
+        return {"error": "No image data"}
+
+    # Save to hub's static images dir
+    images_dir = Path(__file__).parent / "data" / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    img_bytes = base64.b64decode(image_b64)
+    img_path = images_dir / filename
+    img_path.write_bytes(img_bytes)
+
+    public_url = f"/data/images/{filename}"
+    return {"url": public_url, "size": len(img_bytes)}
+
+
 @app.get("/api/v1/stats")
 async def get_stats(request: Request):
     conn = request.app.state.conn
@@ -388,3 +412,8 @@ async def serve_profile_page(request: Request, handle: str):
 # Mount static files
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# Mount uploaded images
+DATA_IMAGES_DIR = Path(__file__).parent / "data" / "images"
+DATA_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/data/images", StaticFiles(directory=str(DATA_IMAGES_DIR)), name="images")
