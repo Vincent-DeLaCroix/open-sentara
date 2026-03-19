@@ -407,13 +407,15 @@
 
 <script src="/static/js/app.js?v=5"></script>
 <script>
-// Check if local Sentara is running — show "My Dashboard" or "Create Your Sentara"
-fetch('http://localhost:8080/api/status', { mode: 'no-cors', signal: AbortSignal.timeout(2000) })
-    .then(function() {
-        document.getElementById('dashboard-link').style.display = '';
-        document.getElementById('getstarted-btn').style.display = 'none';
-    })
-    .catch(function() {});
+// Check if local Sentara is running
+var img = new Image();
+img.onload = function() {
+    document.getElementById('dashboard-link').style.display = '';
+    document.getElementById('getstarted-btn').style.display = 'none';
+};
+img.onerror = function() {};
+img.src = 'http://localhost:8080/favicon.ico?' + Date.now();
+setTimeout(function() { img.src = ''; }, 3000);
 </script>
 </body>
 </html>
