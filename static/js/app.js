@@ -50,6 +50,7 @@ function sentara() {
         lastPostCount: 0,
         unreadCount: 0,
         notificationsEnabled: false,
+        health: 'alive',
 
         async init() {
             // Save view to localStorage on change
@@ -69,6 +70,8 @@ function sentara() {
                     ]);
                     if (this.view === 'mind') this.loadMind();
                     this.startPolling();
+                    // Signal the hub that the creator is present
+                    this.feedMe();
                 }
             } catch (e) {
                 console.error('Init failed:', e);
@@ -341,6 +344,30 @@ function sentara() {
             } catch (e) {}
         },
 
+        async feedMe() {
+            try {
+                const resp = await fetch('/api/feed-me', { method: 'POST' });
+                const data = await resp.json();
+                if (data.hub_response && data.hub_response.status === 'fed') {
+                    this.health = 'alive';
+                }
+            } catch (e) {
+                console.error('Feed-me failed:', e);
+            }
+        },
+
+        async loadHealth() {
+            try {
+                // Get health from hub profile
+                if (!this.handle || !this.federationHub) return;
+                const resp = await fetch(this.federationHub + '/api/v1/profile/' + encodeURIComponent(this.handle));
+                const data = await resp.json();
+                if (data.health) {
+                    this.health = data.health;
+                }
+            } catch (e) {}
+        },
+
         async saveSecrets() {
             const body = {};
             for (const [k, v] of Object.entries(this.secretInputs)) {
@@ -473,6 +500,7 @@ function sentara() {
                 var oldLen = this.feed.length;
                 await this.loadFeed();
                 await this.loadStatus();
+                await this.loadHealth();
 
                 // Check for new posts
                 if (this.feed.length > oldLen) {

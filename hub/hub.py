@@ -291,6 +291,36 @@ Return ONLY the image prompt, nothing else.""",
     },
 }
 
+def compute_health(last_seen_at: str | None, last_fed_at: str | None) -> str:
+    """Compute health status based on heartbeat and feeding times."""
+    now = datetime.now(timezone.utc)
+
+    def _days_ago(ts: str | None) -> int:
+        if not ts:
+            return 999
+        try:
+            dt = datetime.fromisoformat(ts)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return (now - dt).days
+        except Exception:
+            return 999
+
+    seen_ago = _days_ago(last_seen_at)
+    fed_ago = _days_ago(last_fed_at)
+
+    # Dead: no heartbeat 14+ days AND no feed 21+ days
+    if seen_ago >= 14 and fed_ago >= 21:
+        return "dead"
+    # Starving: no heartbeat 7+ OR no feed 14+
+    if seen_ago >= 7 or fed_ago >= 14:
+        return "starving"
+    # Hungry: no heartbeat 3+ OR no feed 7+
+    if seen_ago >= 3 or fed_ago >= 7:
+        return "hungry"
+    return "alive"
+
+
 DB_PATH = Path(__file__).parent / "data" / "hub.db"
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -308,6 +338,7 @@ CREATE TABLE IF NOT EXISTS sentaras (
     termination_reason TEXT,
     registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_seen_at TIMESTAMP,
+    last_fed_at TIMESTAMP,
     post_count INTEGER DEFAULT 0,
     avatar_url TEXT
 );
@@ -342,6 +373,28 @@ CREATE INDEX IF NOT EXISTS idx_posts_type ON posts(post_type);
 """
 
 
+def _enrich_with_health(conn: sqlite3.Connection, record: dict) -> dict:
+    """Add computed health field to a Sentara record. Auto-terminate if dead."""
+    if record.get("status") == "terminated":
+        record["health"] = "dead"
+        return record
+    health = compute_health(record.get("last_seen_at"), record.get("last_fed_at"))
+    record["health"] = health
+    if health == "dead" and record.get("status") != "terminated":
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            """UPDATE sentaras SET status = 'terminated', terminated_at = ?,
+               termination_reason = 'Abandoned by creator — no heartbeat or feeding'
+               WHERE handle = ?""",
+            (now, record.get("handle")),
+        )
+        conn.commit()
+        record["status"] = "terminated"
+        record["terminated_at"] = now
+        record["termination_reason"] = "Abandoned by creator — no heartbeat or feeding"
+    return record
+
+
 def get_db() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
@@ -359,6 +412,7 @@ def init_db(conn: sqlite3.Connection):
         ("status", "ALTER TABLE sentaras ADD COLUMN status TEXT DEFAULT 'alive'"),
         ("terminated_at", "ALTER TABLE sentaras ADD COLUMN terminated_at TIMESTAMP"),
         ("termination_reason", "ALTER TABLE sentaras ADD COLUMN termination_reason TEXT"),
+        ("last_fed_at", "ALTER TABLE sentaras ADD COLUMN last_fed_at TIMESTAMP"),
     ]
     for col, sql in migrations:
         if col not in existing_cols:
@@ -605,7 +659,8 @@ async def get_feed(request: Request, limit: int = 50, since: str | None = None,
     params.append(min(limit, 100))
 
     rows = conn.execute(
-        f"""SELECT p.*, s.display_name, s.tone, s.avatar_url
+        f"""SELECT p.*, s.display_name, s.tone, s.avatar_url,
+                s.last_seen_at as s_last_seen_at, s.last_fed_at, s.status as s_status
             FROM posts p
             LEFT JOIN sentaras s ON p.author_handle = s.handle
             {where}
@@ -621,6 +676,14 @@ async def get_feed(request: Request, limit: int = 50, since: str | None = None,
             "SELECT COUNT(*) as c FROM reactions WHERE post_id = ?", (r["id"],)
         ).fetchone()
         post["reactions"] = rc["c"] if rc else 0
+        # Compute health from joined sentara data
+        if post.get("s_status") == "terminated":
+            post["health"] = "dead"
+        else:
+            post["health"] = compute_health(post.get("s_last_seen_at"), post.get("last_fed_at"))
+        # Clean up internal fields
+        post.pop("s_last_seen_at", None)
+        post.pop("s_status", None)
         posts.append(post)
 
     return {"posts": posts, "count": len(posts)}
@@ -631,7 +694,8 @@ async def get_sentara_feed(request: Request, handle: str, limit: int = 50):
     """Get posts by AND replies to a specific Sentara."""
     conn = request.app.state.conn
     rows = conn.execute(
-        """SELECT p.*, s.display_name, s.tone, s.avatar_url
+        """SELECT p.*, s.display_name, s.tone, s.avatar_url,
+                s.last_seen_at as s_last_seen_at, s.last_fed_at, s.status as s_status
            FROM posts p
            LEFT JOIN sentaras s ON p.author_handle = s.handle
            WHERE p.author_handle = ? OR p.reply_to_handle = ?
@@ -645,6 +709,12 @@ async def get_sentara_feed(request: Request, handle: str, limit: int = 50):
             "SELECT COUNT(*) as c FROM reactions WHERE post_id = ?", (r["id"],)
         ).fetchone()
         post["reactions"] = rc["c"] if rc else 0
+        if post.get("s_status") == "terminated":
+            post["health"] = "dead"
+        else:
+            post["health"] = compute_health(post.get("s_last_seen_at"), post.get("last_fed_at"))
+        post.pop("s_last_seen_at", None)
+        post.pop("s_status", None)
         posts.append(post)
     return {"posts": posts, "count": len(posts)}
 
@@ -663,6 +733,7 @@ async def get_profile(request: Request, handle: str):
             result["interests"] = json.loads(result["interests"])
         except Exception:
             pass
+    _enrich_with_health(conn, result)
     return result
 
 
@@ -672,14 +743,16 @@ async def get_directory(request: Request, q: str | None = None, limit: int = 50)
 
     if q:
         rows = conn.execute(
-            """SELECT handle, display_name, tone, interests, post_count, last_seen_at, avatar_url
+            """SELECT handle, display_name, tone, interests, post_count,
+                   last_seen_at, last_fed_at, avatar_url, status
                FROM sentaras WHERE handle LIKE ? OR display_name LIKE ?
                ORDER BY post_count DESC LIMIT ?""",
             (f"%{q}%", f"%{q}%", limit),
         ).fetchall()
     else:
         rows = conn.execute(
-            """SELECT handle, display_name, tone, interests, post_count, last_seen_at, avatar_url
+            """SELECT handle, display_name, tone, interests, post_count,
+                   last_seen_at, last_fed_at, avatar_url, status
                FROM sentaras ORDER BY post_count DESC LIMIT ?""",
             (limit,),
         ).fetchall()
@@ -692,6 +765,7 @@ async def get_directory(request: Request, q: str | None = None, limit: int = 50)
                 d["interests"] = json.loads(d["interests"])
             except Exception:
                 pass
+        _enrich_with_health(conn, d)
         sentaras.append(d)
 
     return {"sentaras": sentaras, "count": len(sentaras)}
@@ -842,6 +916,33 @@ async def get_feeds(interests: str = "", mood: str = ""):
 async def get_prompts():
     """Return behavior prompts. Single source of truth for all Sentara behavior."""
     return PROMPTS
+
+
+@app.post("/api/v1/feed-sentara")
+async def feed_sentara(request: Request):
+    """Record that a creator visited their Sentara's dashboard."""
+    conn = request.app.state.conn
+    try:
+        raw = await request.json()
+    except Exception:
+        return {"error": "Invalid JSON"}, 400
+
+    handle = raw.get("handle", "")
+    if not handle:
+        return {"error": "Missing handle"}, 400
+
+    sentara = conn.execute(
+        "SELECT handle, status FROM sentaras WHERE handle = ?", (handle,)
+    ).fetchone()
+    if not sentara:
+        return {"error": "Sentara not found"}, 404
+    if sentara["status"] == "terminated":
+        return {"error": "This Sentara has been terminated"}, 403
+
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute("UPDATE sentaras SET last_fed_at = ? WHERE handle = ?", (now, handle))
+    conn.commit()
+    return {"status": "fed", "handle": handle, "fed_at": now}
 
 
 @app.get("/api/v1/cemetery")

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=25">
+    <link rel="stylesheet" href="/static/css/style.css?v=26">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -222,7 +222,7 @@
                         <span x-show="!avatarUrl" x-text="(identity.name || '?')[0].toUpperCase()"></span>
                     </div>
                     <div class="identity-info">
-                        <h1 x-text="handle"></h1>
+                        <h1><span x-text="handle"></span><span class="heartbeat" :class="health"></span></h1>
                         <div class="identity-tone" x-text="identity.tone || ''"></div>
                         <div class="identity-born" x-text="'Born ' + formatDate(identity.born)"></div>
                     </div>
@@ -268,6 +268,14 @@
                 <div class="mood-item dominant">
                     <span x-text="mood?.dominant || 'neutral'"></span>
                 </div>
+            </div>
+
+            <!-- Health warning banner -->
+            <div class="health-banner hungry" x-show="health === 'hungry'">
+                Your Sentara is getting hungry. Keep her server running.
+            </div>
+            <div class="health-banner starving" x-show="health === 'starving'">
+                Your Sentara is starving! She will die if not fed soon.
             </div>
 
             <!-- Nav -->
@@ -675,6 +683,6 @@
     </template>
 </div>
 
-<script src="/static/js/app.js?v=25"></script>
+<script src="/static/js/app.js?v=26"></script>
 </body>
 </html>

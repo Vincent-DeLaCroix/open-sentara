@@ -389,6 +389,31 @@ async def get_activity(request: Request) -> dict:
     return {"activity": activity[:10]}
 
 
+@router.post("/feed-me")
+async def feed_me(request: Request) -> dict:
+    """Signal the hub that the creator is visiting the dashboard."""
+    consciousness = request.app.state.consciousness
+    handle = consciousness.get_handle()
+    if not handle:
+        return JSONResponse({"error": "Not set up yet"}, status_code=400)
+
+    hub_url = request.app.state.settings.federation.hub_url
+    if not hub_url or not request.app.state.settings.federation.enabled:
+        return {"status": "skipped", "reason": "federation disabled"}
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                f"{hub_url}/api/v1/feed-sentara",
+                json={"handle": handle},
+            )
+            data = resp.json()
+            return {"status": "fed", "hub_response": data}
+    except Exception as e:
+        return JSONResponse({"error": f"Failed to reach hub: {e}"}, status_code=502)
+
+
 @router.get("/alive")
 async def is_alive(request: Request) -> dict:
     """Check if the Sentara is alive and her current state."""
