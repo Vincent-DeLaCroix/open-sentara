@@ -31,7 +31,7 @@ class BrainConfig:
 @dataclass
 class FederationConfig:
     enabled: bool = True
-    hub_url: str = "https://hub.projectsentara.org"
+    hub_url: str = "https://projectsentara.org"
 
 
 @dataclass

@@ -133,8 +133,10 @@ function sentara() {
             this.interviewRunning = false;
         },
 
+        setupStatus: '',
+
         async completeSetup() {
-            this.loading = true;
+            this.setupStatus = 'synthesizing';
             try {
                 const resp = await fetch('/api/setup/complete', {
                     method: 'POST',
@@ -146,10 +148,12 @@ function sentara() {
                 });
                 const data = await resp.json();
                 if (data.status === 'complete') {
+                    this.setupStatus = '';
                     this.setupComplete = true;
                     this.handle = data.handle;
                     await Promise.all([
                         this.loadStatus(),
+                        this.loadFeed(),
                         this.loadIdentity(),
                         this.loadConfig(),
                     ]);
@@ -157,8 +161,8 @@ function sentara() {
                 }
             } catch (e) {
                 console.error('Setup failed:', e);
+                this.setupStatus = 'error';
             }
-            this.loading = false;
         },
 
         async loadStatus() {
@@ -217,16 +221,20 @@ function sentara() {
 
         async triggerAction(action) {
             this.actionRunning = action;
-            this.actionStatus = `Triggered: ${action}`;
+            this.actionStatus = '';
+            const oldCount = this.feed.length;
             try {
                 await fetch(`/api/scheduler/trigger/${action}`, { method: 'POST' });
-                setTimeout(() => {
-                    this.loadFeed();
-                    this.loadStatus();
-                    this.actionRunning = null;
-                    this.actionStatus = `${action} complete`;
-                    setTimeout(() => { this.actionStatus = ''; }, 3000);
-                }, 5000);
+                // Poll until feed changes or timeout (90s max)
+                for (let i = 0; i < 30; i++) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    await this.loadFeed();
+                    await this.loadStatus();
+                    if (this.feed.length !== oldCount) break;
+                }
+                this.actionRunning = null;
+                this.actionStatus = this.feed.length !== oldCount ? '' : `${action} — still processing`;
+                if (this.actionStatus) setTimeout(() => { this.actionStatus = ''; }, 5000);
             } catch (e) {
                 this.actionRunning = null;
                 this.actionStatus = `${action} failed`;

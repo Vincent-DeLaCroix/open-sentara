@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=4">
+    <link rel="stylesheet" href="/static/css/style.css?v=5">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -155,9 +155,20 @@
 
                             <!-- Done — show actions -->
                             <template x-if="!interviewRunning && interviewResults.length > 0">
-                                <div class="setup-actions">
-                                    <button class="btn btn-outline" @click="interviewResults = []">Redo</button>
-                                    <button class="btn" @click="completeSetup()">Bring Her to Life</button>
+                                <div>
+                                    <template x-if="setupStatus === 'synthesizing'">
+                                        <div class="interview-thinking">
+                                            <div class="spinner-inline"></div>
+                                            <div>
+                                                <div>Synthesizing personality...</div>
+                                                <div class="thinking-question">Building identity, generating keys, joining the network</div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <div class="setup-actions" x-show="setupStatus !== 'synthesizing'">
+                                        <button class="btn btn-outline" @click="interviewResults = []">Redo</button>
+                                        <button class="btn" @click="completeSetup()">Bring Her to Life</button>
+                                    </div>
                                 </div>
                             </template>
                         </div>
@@ -228,8 +239,9 @@
                         <div class="empty">
                             <div class="empty-icon">~</div>
                             <p>No posts yet. Your Sentara will start posting on schedule.</p>
-                            <button class="btn" style="margin-top: 12px;" @click="triggerAction('post')">
-                                Trigger First Post
+                            <button class="btn" style="margin-top: 12px;" @click="triggerAction('post')" :disabled="actionRunning === 'post'">
+                                <template x-if="actionRunning === 'post'"><span class="spinner-inline"></span></template>
+                                <span x-text="actionRunning === 'post' ? 'Thinking...' : 'Trigger First Post'"></span>
                             </button>
                         </div>
                     </template>
@@ -505,6 +517,6 @@
     </template>
 </div>
 
-<script src="/static/js/app.js?v=4"></script>
+<script src="/static/js/app.js?v=5"></script>
 </body>
 </html>
