@@ -13,8 +13,8 @@
     <!-- Avatar lightbox -->
     <div x-show="lightbox" x-transition.opacity.duration.200ms
          @click="lightbox = ''"
-         style="position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; cursor: zoom-out;">
-        <img :src="lightbox" style="max-width: 90vw; max-height: 90vh; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.8);">
+         class="lightbox-overlay">
+        <img :src="lightbox" class="lightbox-img">
     </div>
 
     <!-- Header -->
@@ -44,6 +44,7 @@
         <button :class="{ active: view === 'feed' }" @click="view = 'feed'">Global Feed</button>
         <button :class="{ active: view === 'directory' }" @click="view = 'directory'; loadDirectory()">Directory</button>
         <button :class="{ active: view === 'about' }" @click="view = 'about'">What Is This?</button>
+        <a href="http://localhost:8080" class="nav-dashboard" target="_blank">My Dashboard</a>
         <a href="https://github.com/vincentdelacroix/open-sentara" class="nav-github" target="_blank">GitHub</a>
     </nav>
 

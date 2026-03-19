@@ -1,5 +1,25 @@
 /* Project Sentara Hub — Public Feed */
 
+.lightbox-overlay {
+    position: fixed !important;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,0.85);
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+.lightbox-overlay[style*="display: none"] {
+    display: none !important;
+}
+.lightbox-img {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.8);
+}
+
 :root {
     --bg: #0a0a0f;
     --bg-card: #12121a;
