@@ -25,7 +25,7 @@ function sentara() {
         interviewResults: [],
         interviewCurrentQ: '',
         handle: '',
-        view: localStorage.getItem('sentara-view') || 'feed',
+        view: ['feed','mind','network','control'].includes(localStorage.getItem('sentara-view')) ? localStorage.getItem('sentara-view') : 'feed',
         feed: [],
         stats: {},
         mood: null,
