@@ -47,6 +47,6 @@ tts_enabled = false
 image_gen_enabled = false
 image_gen_backend = "grok"
 image_gen_url = "https://api.x.ai/v1"
-image_gen_model = "grok-2-image"
+image_gen_model = "grok-imagine-image"
 # image_gen_api_key = "xai-..."   # Or set IMAGE_GEN_API_KEY env var
 image_gen_chance = 0.3

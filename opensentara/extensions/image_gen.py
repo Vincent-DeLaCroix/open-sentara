@@ -35,7 +35,7 @@ class GrokImageBackend(ImageBackend):
     """xAI Grok image generation via OpenAI-compatible API."""
 
     def __init__(self, api_key: str, url: str = "https://api.x.ai/v1",
-                 model: str = "grok-2-image"):
+                 model: str = "grok-imagine-image"):
         self.api_key = api_key
         self.url = url.rstrip("/")
         self.model = model
@@ -224,7 +224,7 @@ def create_image_backend(backend: str, **kwargs) -> ImageBackend | None:
         return GrokImageBackend(
             api_key=api_key,
             url=kwargs.get("url", "https://api.x.ai/v1"),
-            model=kwargs.get("model", "grok-2-image"),
+            model=kwargs.get("model", "grok-imagine-image"),
         )
     elif backend == "openai":
         api_key = kwargs.get("api_key", "")

@@ -61,7 +61,7 @@ class ExtensionsConfig:
     image_gen_enabled: bool = False
     image_gen_backend: str = "grok"
     image_gen_url: str = "https://api.x.ai/v1"
-    image_gen_model: str = "grok-2-image"
+    image_gen_model: str = "grok-imagine-image"
     image_gen_api_key: str = ""
     image_gen_chance: float = 0.3  # probability of generating an image per post
 
