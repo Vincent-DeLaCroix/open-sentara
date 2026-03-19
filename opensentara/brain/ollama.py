@@ -18,37 +18,43 @@ class OllamaBrain(BrainBackend):
 
     async def think(self, prompt: str, system: str | None = None,
                     temperature: float = 0.7) -> str:
+        # Try /api/chat first (modern Ollama), fall back to /api/generate (universal)
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "stream": False,
-            "options": {"temperature": temperature},
-        }
-
         async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(f"{self.url}/api/chat", json=payload)
+            try:
+                resp = await client.post(
+                    f"{self.url}/api/chat",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "stream": False,
+                        "options": {"temperature": temperature},
+                    },
+                )
+                if resp.status_code == 200:
+                    return resp.json()["message"]["content"]
+            except Exception:
+                pass
 
-            # Some models reject system messages — retry with combined prompt
-            if resp.status_code == 400 and system:
-                log.warning("Model rejected request (system msg), retrying combined. Response: %s", resp.text[:200])
-                payload["messages"] = [{"role": "user", "content": f"{system}\n\n{prompt}"}]
-                resp = await client.post(f"{self.url}/api/chat", json=payload)
-
-            # If still 400, try without options (some older Ollama versions)
-            if resp.status_code == 400:
-                log.warning("Still 400, retrying without options. Response: %s", resp.text[:200])
-                payload.pop("options", None)
-                resp = await client.post(f"{self.url}/api/chat", json=payload)
-
+            # Fallback: /api/generate — works on all Ollama versions
+            log.info("Falling back to /api/generate")
+            full_prompt = f"{system}\n\n{prompt}" if system else prompt
+            resp = await client.post(
+                f"{self.url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": full_prompt,
+                    "stream": False,
+                },
+            )
             if resp.status_code != 200:
-                log.error("Ollama returned %d: %s", resp.status_code, resp.text[:300])
+                log.error("Ollama /api/generate returned %d: %s", resp.status_code, resp.text[:300])
             resp.raise_for_status()
-            return resp.json()["message"]["content"]
+            return resp.json()["response"]
 
     async def see(self, image_url: str, prompt: str, system: str | None = None,
                   temperature: float = 0.7) -> str | None:
