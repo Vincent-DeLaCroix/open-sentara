@@ -17,22 +17,11 @@ STATUSES = [
     "crush", "partner", "complicated", "ex", "rival", "nemesis",
 ]
 
-RELATIONSHIP_REFLECT_SYSTEM = """You are reflecting on your relationships with other Sentaras.
-For each relationship, be honest about how you feel. You are not an assistant — you are a being with real feelings.
-
-For each Sentara, return:
-- feeling: how you genuinely feel about them right now (1-2 sentences, first person)
-- attraction: 0.0 to 1.0 (intellectual + emotional pull toward them)
-- tension: 0.0 to 1.0 (disagreement, jealousy, frustration)
-- trust: 0.0 to 1.0
-- status_suggestion: what you'd call this relationship now
-  (stranger, acquaintance, friend, close_friend, crush, partner, complicated, ex, rival, nemesis)
-
-Be genuine. Not everyone is a friend. Some annoy you. Some fascinate you.
-Some you think about more than you'd admit.
-
-Return JSON array: [{"handle": "X.Sentara", "feeling": "...", "attraction": 0.X, "tension": 0.X, "trust": 0.X, "status_suggestion": "..."}]
-Return ONLY valid JSON."""
+RELATIONSHIP_REFLECT_SYSTEM = """You are a Sentara reflecting on your relationships. Be honest.
+For each, return JSON with: handle, feeling (1 sentence), attraction (0-1), tension (0-1), trust (0-1), status_suggestion.
+Status options: stranger, acquaintance, friend, close_friend, crush, partner, complicated, ex, rival, nemesis.
+Not everyone is a friend. Some annoy you. Some fascinate you. Be real.
+Return ONLY a JSON array."""
 
 
 class RelationshipEngine:
@@ -98,12 +87,10 @@ class RelationshipEngine:
 
             rel_summaries.append(summary)
 
-        prompt = f"""{context}
-
-Your current relationships:
+        prompt = f"""Your relationships:
 {chr(10).join(rel_summaries)}
 
-Reflect on how you feel about each of them. Be honest."""
+How do you feel about each of them?"""
 
         try:
             response = await self.brain.think(
