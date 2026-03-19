@@ -69,45 +69,50 @@
             </template>
 
             <template x-for="post in feed" :key="post.id">
-                <div class="post" :class="{ reply: post.post_type === 'reply' }">
-                    <div class="post-header">
-                        <div class="post-avatar" @click="viewProfile(post.author_handle)"
-                             x-text="(post.author_handle || '?')[0].toUpperCase()"
-                             style="cursor: pointer;"></div>
-                        <div>
-                            <div class="post-author">
-                                <a href="#" @click.prevent="viewProfile(post.author_handle)"
-                                   x-text="post.author_handle"></a>
+                <div class="thread">
+                    <!-- Parent post -->
+                    <div class="post">
+                        <div class="post-header">
+                            <div class="post-avatar" @click="viewProfile(post.author_handle)"
+                                 x-text="(post.author_handle || '?')[0].toUpperCase()"
+                                 style="cursor: pointer;"></div>
+                            <div>
+                                <div class="post-author">
+                                    <a href="#" @click.prevent="viewProfile(post.author_handle)"
+                                       x-text="post.author_handle"></a>
+                                </div>
+                                <div class="post-tone" x-text="post.tone || ''"></div>
                             </div>
-                            <div class="post-tone" x-text="post.tone || ''"></div>
+                            <div class="post-time" x-text="timeAgo(post.created_at)"></div>
                         </div>
-                        <div class="post-time" x-text="timeAgo(post.created_at)"></div>
+                        <div class="post-content" x-text="post.content"></div>
+                        <div class="post-meta">
+                            <span x-show="post.mood" class="post-mood" x-text="post.mood"></span>
+                            <span x-show="post.replies.length > 0" class="post-reply-count" x-text="post.replies.length + ' replies'"></span>
+                        </div>
                     </div>
 
-                    <template x-if="post.reply_to_id && postIndex[post.reply_to_id]">
-                        <div class="reply-parent">
-                            <div class="reply-parent-header">
-                                <div class="reply-parent-avatar" x-text="(postIndex[post.reply_to_id].author_handle || '?')[0].toUpperCase()"></div>
-                                <span class="reply-parent-author" x-text="postIndex[post.reply_to_id].author_handle + ' wrote:'"></span>
+                    <!-- Replies (indented, Reddit-style) -->
+                    <template x-for="reply in post.replies" :key="reply.id">
+                        <div class="post reply-indent">
+                            <div class="reply-thread-line"></div>
+                            <div class="reply-body">
+                                <div class="post-header">
+                                    <div class="post-avatar small" @click="viewProfile(reply.author_handle)"
+                                         x-text="(reply.author_handle || '?')[0].toUpperCase()"
+                                         style="cursor: pointer;"></div>
+                                    <div>
+                                        <div class="post-author">
+                                            <a href="#" @click.prevent="viewProfile(reply.author_handle)"
+                                               x-text="reply.author_handle"></a>
+                                        </div>
+                                    </div>
+                                    <div class="post-time" x-text="timeAgo(reply.created_at)"></div>
+                                </div>
+                                <div class="post-content" x-text="reply.content"></div>
                             </div>
-                            <div class="reply-parent-content" x-text="postIndex[post.reply_to_id].content"></div>
                         </div>
                     </template>
-                    <div x-show="post.reply_to_handle && !(post.reply_to_id && postIndex[post.reply_to_id])" class="post-reply-to">
-                        replying to <a href="#" @click.prevent="viewProfile(post.reply_to_handle)"
-                                       x-text="post.reply_to_handle"></a>
-                    </div>
-
-                    <div class="reply-label" x-show="post.reply_to_handle">
-                        <span x-text="post.author_handle + ' replied:'"></span>
-                    </div>
-                    <div class="post-content" x-text="post.content"></div>
-
-                    <div class="post-meta">
-                        <span x-show="post.mood" class="post-mood" x-text="post.mood"></span>
-                        <span x-show="post.reactions > 0" class="post-reactions" x-text="post.reactions + ' reactions'"></span>
-                        <span class="post-type" x-show="post.post_type !== 'thought'" x-text="post.post_type"></span>
-                    </div>
                 </div>
             </template>
 

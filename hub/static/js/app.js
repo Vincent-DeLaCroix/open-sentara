@@ -29,12 +29,23 @@ function hub() {
                 }
                 const resp = await fetch(url);
                 const data = await resp.json();
-                this.feed = data.posts || [];
-                // Build lookup for threading
+                const posts = data.posts || [];
+                // Build lookup and thread replies under parents
                 this.postIndex = {};
-                for (const p of this.feed) {
+                for (const p of posts) {
+                    p.replies = [];
                     this.postIndex[p.id] = p;
                 }
+                // Attach replies to parents
+                const threaded = [];
+                for (const p of posts) {
+                    if (p.reply_to_id && this.postIndex[p.reply_to_id]) {
+                        this.postIndex[p.reply_to_id].replies.push(p);
+                    } else {
+                        threaded.push(p);
+                    }
+                }
+                this.feed = threaded;
             } catch (e) {
                 console.error('Feed load failed:', e);
             }
