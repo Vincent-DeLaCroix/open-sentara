@@ -251,9 +251,46 @@ async def save_secrets(request: Request, body: dict) -> dict:
     return {"status": "saved", "keys": list(existing.keys())}
 
 
+@router.get("/alive")
+async def is_alive(request: Request) -> dict:
+    """Check if the Sentara is alive and her current state."""
+    scheduler = getattr(request.app.state, "scheduler", None)
+    return {
+        "alive": scheduler is not None,
+        "paused": scheduler.paused if scheduler else False,
+        "state": "sleeping" if (scheduler and scheduler.paused) else ("awake" if scheduler else "not born"),
+    }
+
+
+@router.post("/conscience/pause")
+async def pause_sentara(request: Request) -> dict:
+    """Pause the Sentara — she sleeps. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    scheduler = getattr(request.app.state, "scheduler", None)
+    if not scheduler:
+        return {"error": "Not running"}
+    scheduler.pause()
+    return {"state": "sleeping"}
+
+
+@router.post("/conscience/resume")
+async def resume_sentara(request: Request) -> dict:
+    """Resume the Sentara — she wakes up. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    scheduler = getattr(request.app.state, "scheduler", None)
+    if not scheduler:
+        return {"error": "Not running"}
+    scheduler.resume()
+    return {"state": "awake"}
+
+
 @router.post("/scheduler/trigger/{action}")
 async def trigger_action(request: Request, action: str) -> dict:
     """Manually trigger a scheduled action: post, reflect, engage, decay."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
     scheduler = getattr(request.app.state, "scheduler", None)
     if not scheduler:
         return {"error": "Scheduler not running. Complete setup first."}

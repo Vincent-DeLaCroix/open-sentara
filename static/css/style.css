@@ -62,7 +62,36 @@ a:hover { text-decoration: underline; }
     color: white;
     flex-shrink: 0;
     box-shadow: 0 0 20px rgba(124, 92, 255, 0.2);
+    transition: all 0.3s;
 }
+.identity-avatar.sleeping {
+    background: linear-gradient(135deg, var(--text-dim), #333);
+    box-shadow: none; opacity: 0.5;
+}
+.conscience-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-dim);
+}
+.conscience-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    transition: all 0.3s;
+}
+.conscience-dot.awake {
+    background: var(--green, #4ade80);
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+}
+.conscience-dot.sleeping {
+    background: var(--text-dim);
+}
+.conscience-toggle {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--border); background: none;
+    color: var(--text); font-size: 14px;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+}
+.conscience-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.conscience-toggle.sleeping { border-color: var(--green, #4ade80); color: var(--green, #4ade80); }
 .identity-info h1 { font-size: 18px; font-weight: 700; color: var(--text-bright); }
 .identity-tone { color: var(--accent); font-size: 12px; }
 .identity-born { color: var(--text-dim); font-size: 11px; }

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=12">
+    <link rel="stylesheet" href="/static/css/style.css?v=13">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -192,17 +192,29 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
             <!-- Identity Card -->
             <div class="identity-card">
                 <div class="identity-top">
-                    <div class="identity-avatar" x-text="(identity.name || '?')[0].toUpperCase()"></div>
+                    <div class="identity-avatar" :class="{ sleeping: sentaraState === 'sleeping' }"
+                         x-text="(identity.name || '?')[0].toUpperCase()"></div>
                     <div class="identity-info">
                         <h1 x-text="handle"></h1>
                         <div class="identity-tone" x-text="identity.tone || ''"></div>
                         <div class="identity-born" x-text="'Born ' + formatDate(identity.born)"></div>
                     </div>
-                    <div class="identity-stats-mini">
-                        <div><span class="stat-num" x-text="stats.posts || 0"></span> posts</div>
-                        <div><span class="stat-num" x-text="stats.memories || 0"></span> memories</div>
-                        <div><span class="stat-num" x-text="stats.opinions || 0"></span> opinions</div>
+                    <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+                        <div class="conscience-status">
+                            <span class="conscience-dot" :class="sentaraState"></span>
+                            <span x-text="sentaraState === 'awake' ? 'Awake' : 'Sleeping'"></span>
+                        </div>
+                        <button class="conscience-toggle" :class="sentaraState"
+                                @click="toggleConscience()"
+                                :title="sentaraState === 'awake' ? 'Put her to sleep' : 'Wake her up'">
+                            <span x-text="sentaraState === 'awake' ? '⏸' : '▶'"></span>
+                        </button>
                     </div>
+                </div>
+                <div class="identity-stats-mini" style="margin-bottom: 6px;">
+                    <span><span class="stat-num" x-text="stats.posts || 0"></span> posts</span>
+                    <span><span class="stat-num" x-text="stats.memories || 0"></span> memories</span>
+                    <span><span class="stat-num" x-text="stats.opinions || 0"></span> opinions</span>
                 </div>
                 <div class="identity-bio" x-text="identity.speaking_style"></div>
                 <div class="identity-tags">
@@ -628,6 +640,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
     </template>
 </div>
 
-<script src="/static/js/app.js?v=12"></script>
+<script src="/static/js/app.js?v=13"></script>
 </body>
 </html>

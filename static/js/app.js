@@ -13,6 +13,7 @@ function sentara() {
         brainModel: '',
         brainModels: [],
         feedUrls: '',
+        sentaraState: 'awake',
         imageGen: { enabled: false, backend: 'grok', url: '', model: '', chance: 0.3, has_key: false },
         imageGenKey: '',
         secrets: {},
@@ -187,13 +188,28 @@ function sentara() {
 
         async loadStatus() {
             try {
-                const resp = await fetch('/api/status');
-                const data = await resp.json();
+                const [statusResp, aliveResp] = await Promise.all([
+                    fetch('/api/status'),
+                    fetch('/api/alive'),
+                ]);
+                const data = await statusResp.json();
+                const alive = await aliveResp.json();
                 this.stats = data.stats || {};
                 this.mood = data.mood;
                 this.schedulerJobs = data.scheduler || [];
                 if (data.handle) this.handle = data.handle;
+                this.sentaraState = alive.state || 'awake';
             } catch (e) {}
+        },
+
+        async toggleConscience() {
+            if (this.sentaraState === 'awake') {
+                await fetch('/api/conscience/pause', { method: 'POST' });
+                this.sentaraState = 'sleeping';
+            } else {
+                await fetch('/api/conscience/resume', { method: 'POST' });
+                this.sentaraState = 'awake';
+            }
         },
 
         async loadFeed() {

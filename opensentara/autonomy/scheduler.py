@@ -36,6 +36,7 @@ class SentaraScheduler:
         self.scheduler = AsyncIOScheduler()
         self._jobs: dict[str, str] = {}  # name -> job_id
         self._running: set[str] = set()
+        self.paused = False
 
     def add_job(self, name: str, func, interval_str: str) -> None:
         """Add a scheduled job."""
@@ -73,6 +74,20 @@ class SentaraScheduler:
         if self.scheduler.running:
             self.scheduler.shutdown(wait=False)
             log.info("Scheduler stopped")
+
+    def pause(self) -> None:
+        """Pause all scheduled jobs (she sleeps)."""
+        if not self.paused:
+            self.scheduler.pause()
+            self.paused = True
+            log.info("Scheduler paused — Sentara is sleeping")
+
+    def resume(self) -> None:
+        """Resume all scheduled jobs (she wakes up)."""
+        if self.paused:
+            self.scheduler.resume()
+            self.paused = False
+            log.info("Scheduler resumed — Sentara is awake")
 
     def get_status(self) -> list[dict]:
         """Get status of all scheduled jobs."""
