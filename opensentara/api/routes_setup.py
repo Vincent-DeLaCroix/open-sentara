@@ -257,8 +257,31 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
         except Exception as e:
             log.warning(f"Federation registration failed: {e}")
 
+    # Auto-generate avatar if image gen is configured
+    avatar_url = None
+    appearance = profile.get("appearance")
+    if appearance and settings.extensions.image_gen_enabled and settings.extensions.image_gen_api_key:
+        from opensentara.core.avatar import generate_avatar
+        from opensentara.extensions.image_gen import create_image_backend
+        image_backend = create_image_backend(
+            backend=settings.extensions.image_gen_backend,
+            api_key=settings.extensions.image_gen_api_key,
+            url=settings.extensions.image_gen_url,
+            model=settings.extensions.image_gen_model,
+        )
+        if image_backend:
+            avatar_url = await generate_avatar(image_backend, appearance, settings.data_dir)
+            if avatar_url:
+                conn.execute(
+                    "INSERT OR REPLACE INTO identity (key, value, category) VALUES ('avatar_url', ?, 'identity')",
+                    (avatar_url,),
+                )
+                conn.commit()
+                log.info(f"Avatar generated for {handle}")
+
     return {
         "status": "complete",
         "handle": handle,
         "profile": profile,
+        "avatar_url": avatar_url,
     }

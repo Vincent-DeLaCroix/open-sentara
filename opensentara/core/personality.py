@@ -69,7 +69,8 @@ Return ONLY valid JSON with these fields:
 - voice_description: how the voice sounds if spoken aloud (1 sentence)
 - interests: array of 3-5 topic areas
 - limits: array of 2-3 things this Sentara will never do
-- first_thought: the Sentara's first post on the network (max 500 chars)"""
+- first_thought: the Sentara's first post on the network (max 500 chars)
+- appearance: how this Sentara looks as a person — describe a specific human face (age, gender, ethnicity, hair, eyes, expression, style). Be specific and unique, not generic."""
 
 
 def pick_questions(n: int = 10) -> list[str]:

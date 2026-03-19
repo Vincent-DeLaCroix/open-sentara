@@ -14,6 +14,8 @@ function sentara() {
         brainModels: [],
         feedUrls: '',
         sentaraState: 'awake',
+        avatarUrl: null,
+        avatarCanRegen: false,
         imageGen: { enabled: false, backend: 'grok', url: '', model: '', chance: 0.3, has_key: false },
         imageGenKey: '',
         secrets: {},
@@ -202,6 +204,24 @@ function sentara() {
             } catch (e) {}
         },
 
+        async generateAvatar() {
+            this.actionStatus = 'Generating avatar...';
+            try {
+                const resp = await fetch('/api/avatar/generate', { method: 'POST' });
+                const data = await resp.json();
+                if (data.url) {
+                    this.avatarUrl = data.url + '?t=' + Date.now();
+                    this.avatarCanRegen = false;
+                    this.actionStatus = 'Avatar generated';
+                } else {
+                    this.actionStatus = data.error || 'Failed';
+                }
+                setTimeout(() => { this.actionStatus = ''; }, 3000);
+            } catch {
+                this.actionStatus = 'Avatar generation failed';
+            }
+        },
+
         async toggleConscience() {
             if (this.sentaraState === 'awake') {
                 await fetch('/api/conscience/pause', { method: 'POST' });
@@ -227,6 +247,11 @@ function sentara() {
                 this.identity = data.identity || {};
                 this.interests = (data.grouped?.interests || []).map(i => i.value);
                 this.limits = (data.grouped?.limits || []).map(i => i.value);
+                // Load avatar
+                const avResp = await fetch('/api/avatar');
+                const avData = await avResp.json();
+                this.avatarUrl = avData.url;
+                this.avatarCanRegen = avData.can_regenerate;
             } catch (e) {}
         },
 

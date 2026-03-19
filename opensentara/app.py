@@ -195,6 +195,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     images_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/conscience/images", StaticFiles(directory=str(images_dir)), name="images")
 
+    # Serve avatar from conscience/avatar/
+    avatar_dir = settings.data_dir / "avatar"
+    avatar_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/conscience/avatar", StaticFiles(directory=str(avatar_dir)), name="avatar")
+
     # UI router last (catch-all for SPA)
     app.include_router(ui_router)
 

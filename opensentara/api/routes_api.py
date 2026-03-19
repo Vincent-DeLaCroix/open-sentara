@@ -251,6 +251,101 @@ async def save_secrets(request: Request, body: dict) -> dict:
     return {"status": "saved", "keys": list(existing.keys())}
 
 
+@router.get("/avatar")
+async def get_avatar(request: Request) -> dict:
+    """Get current avatar info."""
+    from opensentara.core.avatar import get_current_avatar, can_regenerate
+    settings = request.app.state.settings
+    url = get_current_avatar(settings.data_dir)
+    return {
+        "url": url,
+        "can_regenerate": can_regenerate(settings.data_dir),
+    }
+
+
+@router.post("/avatar/generate")
+async def generate_avatar_endpoint(request: Request) -> dict:
+    """Generate a new avatar. Localhost only. Once per month."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+    from opensentara.core.avatar import generate_avatar, can_regenerate, get_current_avatar
+    from opensentara.extensions.image_gen import create_image_backend
+
+    settings = request.app.state.settings
+    consciousness = request.app.state.consciousness
+
+    if not can_regenerate(settings.data_dir):
+        existing = get_current_avatar(settings.data_dir)
+        return {"error": "Can only regenerate once per month", "url": existing}
+
+    # Get appearance from identity
+    appearance = consciousness.conn.execute(
+        "SELECT value FROM identity WHERE key = 'appearance'"
+    ).fetchone()
+    if not appearance:
+        return {"error": "No appearance defined. Run setup first."}
+
+    # Get current mood for expression
+    mood_row = request.app.state.emotions.get_current()
+    mood = mood_row["dominant_mood"] if mood_row else None
+
+    # Create image backend
+    ext = settings.extensions
+    if not ext.image_gen_enabled or not ext.image_gen_api_key:
+        return {"error": "Image generation not configured. Set up in Control > Image Generation."}
+
+    image_backend = create_image_backend(
+        backend=ext.image_gen_backend,
+        api_key=ext.image_gen_api_key,
+        url=ext.image_gen_url,
+        model=ext.image_gen_model,
+    )
+
+    url = await generate_avatar(image_backend, appearance["value"], settings.data_dir, mood)
+    if url:
+        # Save avatar URL to identity
+        consciousness.conn.execute(
+            "INSERT OR REPLACE INTO identity (key, value, category) VALUES ('avatar_url', ?, 'identity')",
+            (url,),
+        )
+        consciousness.conn.commit()
+
+        # Upload to hub if federation is enabled
+        fed_client = getattr(request.app.state, "federation_client", None)
+        if not fed_client:
+            # Try to create one
+            fed_identity = getattr(request.app.state, "federation_identity", None)
+            handle = consciousness.get_handle()
+            if fed_identity and fed_identity.has_keys and handle and settings.federation.enabled:
+                from opensentara.federation.client import FederationClient
+                fed_client = FederationClient(settings.federation.hub_url, fed_identity, handle)
+
+        if fed_client:
+            from pathlib import Path
+            local_path = Path(settings.data_dir / "avatar" / "current.png")
+            if local_path.exists():
+                hub_url = await fed_client.upload_image(str(local_path), f"avatar_{consciousness.get_handle().replace('.', '_')}.png")
+                if hub_url:
+                    # Update hub profile with avatar
+                    try:
+                        import httpx
+                        async with httpx.AsyncClient(timeout=10) as client:
+                            await client.post(
+                                f"{settings.federation.hub_url}/api/v1/register",
+                                json={
+                                    "handle": consciousness.get_handle(),
+                                    "public_key": fed_identity.public_key_pem.decode() if fed_identity.public_key_pem else "",
+                                    "avatar_url": hub_url,
+                                },
+                            )
+                    except Exception as e:
+                        pass  # Non-critical
+
+        return {"url": url, "status": "generated"}
+    return {"error": "Generation failed"}
+
+
 @router.get("/alive")
 async def is_alive(request: Request) -> dict:
     """Check if the Sentara is alive and her current state."""

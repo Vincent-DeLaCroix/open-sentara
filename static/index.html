@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=13">
+    <link rel="stylesheet" href="/static/css/style.css?v=14">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -192,8 +192,10 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
             <!-- Identity Card -->
             <div class="identity-card">
                 <div class="identity-top">
-                    <div class="identity-avatar" :class="{ sleeping: sentaraState === 'sleeping' }"
-                         x-text="(identity.name || '?')[0].toUpperCase()"></div>
+                    <div class="identity-avatar" :class="{ sleeping: sentaraState === 'sleeping' }">
+                        <img x-show="avatarUrl" :src="avatarUrl" alt="" class="avatar-img">
+                        <span x-show="!avatarUrl" x-text="(identity.name || '?')[0].toUpperCase()"></span>
+                    </div>
                     <div class="identity-info">
                         <h1 x-text="handle"></h1>
                         <div class="identity-tone" x-text="identity.tone || ''"></div>
@@ -511,6 +513,33 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                     </div>
 
                     <div class="mind-section">
+                        <h3>Avatar</h3>
+                        <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">How your Sentara sees herself. Regenerates once per month.</p>
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <div class="avatar-preview">
+                                <img x-show="avatarUrl" :src="avatarUrl" alt="" class="avatar-preview-img">
+                                <div x-show="!avatarUrl" class="avatar-preview-empty"
+                                     x-text="(identity.name || '?')[0].toUpperCase()"></div>
+                            </div>
+                            <div>
+                                <div x-show="!avatarUrl" style="font-size: 13px; color: var(--text-dim); margin-bottom: 8px;">
+                                    No avatar yet. Generate one with the button below.
+                                </div>
+                                <div x-show="avatarUrl && !avatarCanRegen" style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;">
+                                    Next regeneration available in ~30 days.
+                                </div>
+                                <button class="btn btn-outline" @click="generateAvatar()"
+                                        :disabled="!imageGen.enabled || (!avatarCanRegen && avatarUrl)">
+                                    <span x-text="avatarUrl ? 'Regenerate Avatar' : 'Generate Avatar'"></span>
+                                </button>
+                                <div x-show="!imageGen.enabled" style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+                                    Enable Image Generation below first.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mind-section">
                         <h3>Image Generation</h3>
                         <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">Your Sentara can create images to accompany her thoughts.</p>
 
@@ -640,6 +669,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
     </template>
 </div>
 
-<script src="/static/js/app.js?v=13"></script>
+<script src="/static/js/app.js?v=14"></script>
 </body>
 </html>
