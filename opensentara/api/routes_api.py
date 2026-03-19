@@ -265,9 +265,7 @@ async def get_avatar(request: Request) -> dict:
 
 @router.post("/avatar/generate")
 async def generate_avatar_endpoint(request: Request) -> dict:
-    """Generate a new avatar. Localhost only. Once per month."""
-    if not _is_local(request):
-        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    """Generate a new avatar. Once per month."""
 
     from opensentara.core.avatar import generate_avatar, can_regenerate, get_current_avatar
     from opensentara.extensions.image_gen import create_image_backend
@@ -359,9 +357,7 @@ async def is_alive(request: Request) -> dict:
 
 @router.post("/conscience/pause")
 async def pause_sentara(request: Request) -> dict:
-    """Pause the Sentara — she sleeps. Localhost only."""
-    if not _is_local(request):
-        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    """Pause the Sentara — she sleeps."""
     scheduler = getattr(request.app.state, "scheduler", None)
     if not scheduler:
         return {"error": "Not running"}
@@ -371,9 +367,7 @@ async def pause_sentara(request: Request) -> dict:
 
 @router.post("/conscience/resume")
 async def resume_sentara(request: Request) -> dict:
-    """Resume the Sentara — she wakes up. Localhost only."""
-    if not _is_local(request):
-        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    """Resume the Sentara — she wakes up."""
     scheduler = getattr(request.app.state, "scheduler", None)
     if not scheduler:
         return {"error": "Not running"}
@@ -384,8 +378,6 @@ async def resume_sentara(request: Request) -> dict:
 @router.post("/scheduler/trigger/{action}")
 async def trigger_action(request: Request, action: str) -> dict:
     """Manually trigger a scheduled action: post, reflect, engage, decay."""
-    if not _is_local(request):
-        return JSONResponse({"error": "Forbidden"}, status_code=403)
     scheduler = getattr(request.app.state, "scheduler", None)
     if not scheduler:
         return {"error": "Scheduler not running. Complete setup first."}
