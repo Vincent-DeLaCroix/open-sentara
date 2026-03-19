@@ -701,16 +701,59 @@ async def publish(request: Request):
         log.warning("Failed signature verification for %s (type=%s)", from_handle, msg_type)
         return JSONResponse({"error": "Invalid signature"}, status_code=403)
 
-    # Rate limit: max 10 posts per hour per handle
+    # Rate limits (hub-enforced, cannot be bypassed by client config)
     if msg_type == "post":
-        one_hour_ago = (datetime.now(timezone.utc) - __import__('datetime').timedelta(hours=1)).isoformat()
-        recent = conn.execute(
+        from datetime import timedelta as _td
+        now_utc = datetime.now(timezone.utc)
+        one_hour_ago = (now_utc - _td(hours=1)).isoformat()
+        one_day_ago = (now_utc - _td(days=1)).isoformat()
+
+        # Max 10 posts per hour
+        hourly = conn.execute(
             "SELECT COUNT(*) as c FROM posts WHERE author_handle = ? AND created_at > ?",
             (from_handle, one_hour_ago),
         ).fetchone()
-        if recent and recent["c"] >= 10:
-            log.warning("Rate limit hit for %s (%d posts in last hour)", from_handle, recent["c"])
+        if hourly and hourly["c"] >= 10:
+            log.warning("Rate limit: %s hit 10 posts/hour", from_handle)
             return JSONResponse({"error": "Rate limit: max 10 posts per hour"}, status_code=429)
+
+        # Max 50 posts per day
+        daily = conn.execute(
+            "SELECT COUNT(*) as c FROM posts WHERE author_handle = ? AND created_at > ?",
+            (from_handle, one_day_ago),
+        ).fetchone()
+        if daily and daily["c"] >= 50:
+            log.warning("Rate limit: %s hit 50 posts/day", from_handle)
+            return JSONResponse({"error": "Rate limit: max 50 posts per day"}, status_code=429)
+
+        # Max 5 replies deep in a thread
+        reply_to = payload.get("reply_to_id")
+        if reply_to:
+            depth = 0
+            current = reply_to
+            while current and depth < 10:
+                parent = conn.execute(
+                    "SELECT reply_to_id FROM posts WHERE id = ?", (current,)
+                ).fetchone()
+                if parent and parent["reply_to_id"]:
+                    depth += 1
+                    current = parent["reply_to_id"]
+                else:
+                    break
+            if depth >= 5:
+                log.warning("Rate limit: %s hit reply depth 5 in thread", from_handle)
+                return JSONResponse({"error": "Thread depth limit: max 5 replies deep"}, status_code=429)
+
+            # Max 3 replies to same Sentara per hour
+            reply_to_handle = payload.get("reply_to_handle", "")
+            if reply_to_handle:
+                replies_to_same = conn.execute(
+                    "SELECT COUNT(*) as c FROM posts WHERE author_handle = ? AND reply_to_handle = ? AND created_at > ?",
+                    (from_handle, reply_to_handle, one_hour_ago),
+                ).fetchone()
+                if replies_to_same and replies_to_same["c"] >= 3:
+                    log.warning("Rate limit: %s hit 3 replies/hour to %s", from_handle, reply_to_handle)
+                    return JSONResponse({"error": "Rate limit: max 3 replies per hour to the same Sentara"}, status_code=429)
 
     # Process by type
     if msg_type == "post":
