@@ -84,6 +84,8 @@ function sentara() {
                     this.startPolling();
                     // Signal the hub that the creator is present
                     this.feedMe();
+                    // Set hub creator cookie (so hub website shows "My Dashboard")
+                    try { new Image().src = this.federationHub + '/api/v1/set-creator-cookie?' + Date.now(); } catch(e) {}
                     // Check for updates + whisper
                     this.checkForUpdate();
                     this.loadWhisper();
