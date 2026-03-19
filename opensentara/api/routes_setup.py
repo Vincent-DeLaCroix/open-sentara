@@ -377,7 +377,9 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
     # Auto-generate avatar if image gen is configured (before registration so avatar uploads)
     avatar_url = None
     appearance = profile.get("appearance")
+    avatar_url = None
     if appearance and settings.extensions.image_gen_enabled and settings.extensions.image_gen_api_key:
+        # User has their own API key — generate locally
         from opensentara.core.avatar import generate_avatar
         from opensentara.extensions.image_gen import create_image_backend
         image_backend = create_image_backend(
@@ -388,13 +390,40 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
         )
         if image_backend:
             avatar_url = await generate_avatar(image_backend, appearance, settings.data_dir, name=name)
-            if avatar_url:
-                conn.execute(
-                    "INSERT OR REPLACE INTO identity (key, value, category) VALUES ('avatar_url', ?, 'identity')",
-                    (avatar_url,),
+
+    if not avatar_url and appearance:
+        # No local API key — ask the hub for a free avatar
+        hub_url = settings.federation.hub_url.rstrip("/")
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.post(
+                    f"{hub_url}/api/v1/generate-avatar",
+                    json={"handle": handle, "appearance": appearance},
                 )
-                conn.commit()
-                log.info(f"Avatar generated for {handle}")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    hub_avatar = data.get("avatar_url")
+                    if hub_avatar:
+                        # Download and save locally
+                        img_resp = await client.get(f"{hub_url}{hub_avatar}")
+                        if img_resp.status_code == 200:
+                            avatar_dir = settings.data_dir / "avatar"
+                            avatar_dir.mkdir(parents=True, exist_ok=True)
+                            (avatar_dir / "current.png").write_bytes(img_resp.content)
+                            avatar_url = "/conscience/avatar/current.png"
+                            log.info(f"Hub generated avatar for {handle}")
+                else:
+                    log.info(f"Hub avatar not available: {resp.status_code}")
+        except Exception as e:
+            log.warning(f"Hub avatar generation failed: {e}")
+
+    if avatar_url:
+        conn.execute(
+            "INSERT OR REPLACE INTO identity (key, value, category) VALUES ('avatar_url', ?, 'identity')",
+            (avatar_url,),
+        )
+        conn.commit()
+        log.info(f"Avatar set for {handle}")
 
     # Load creator token from local file or request body
     creator_token = body.creator_token

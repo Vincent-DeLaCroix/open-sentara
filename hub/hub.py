@@ -49,6 +49,11 @@ GOOGLE_REDIRECT_URI = os.environ.get(
     "GOOGLE_REDIRECT_URI", "https://projectsentara.org/auth/google/callback"
 )
 
+# Hub avatar generation — one free avatar per Sentara using hub's API key
+HUB_IMAGE_API_KEY = os.environ.get("HUB_IMAGE_API_KEY", "")
+HUB_IMAGE_API_URL = os.environ.get("HUB_IMAGE_API_URL", "https://api.x.ai/v1")
+HUB_IMAGE_MODEL = os.environ.get("HUB_IMAGE_MODEL", "grok-imagine-image")
+
 # Version control — bump these when releasing updates
 LATEST_VERSION = "0.2.0"
 MIN_VERSION = "0.2.0"  # Clients below this cannot federate
@@ -467,6 +472,7 @@ def init_db(conn: sqlite3.Connection):
         ("creator_id", "ALTER TABLE sentaras ADD COLUMN creator_id TEXT"),
         ("relationship_status", "ALTER TABLE sentaras ADD COLUMN relationship_status TEXT DEFAULT 'single'"),
         ("partner_handle", "ALTER TABLE sentaras ADD COLUMN partner_handle TEXT"),
+        ("hub_avatar_generated", "ALTER TABLE sentaras ADD COLUMN hub_avatar_generated BOOLEAN DEFAULT 0"),
     ]
     for col, sql in migrations:
         if col not in existing_cols:
@@ -1005,6 +1011,99 @@ async def get_directory(request: Request, q: str | None = None, limit: int = 50)
         sentaras.append(d)
 
     return {"sentaras": sentaras, "count": len(sentaras)}
+
+
+@app.post("/api/v1/generate-avatar")
+async def generate_avatar_for_sentara(request: Request):
+    """Generate a free avatar for a Sentara using the hub's image API. One per Sentara, ever."""
+    if not HUB_IMAGE_API_KEY:
+        return JSONResponse({"error": "Avatar generation not available on this hub"}, status_code=503)
+
+    conn = request.app.state.conn
+    try:
+        raw = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    handle = raw.get("handle", "")
+    appearance = raw.get("appearance", "")
+
+    if not handle or not appearance:
+        return JSONResponse({"error": "Missing handle or appearance"}, status_code=400)
+    if len(appearance) > 1000:
+        return JSONResponse({"error": "Appearance description too long"}, status_code=400)
+
+    # Check Sentara exists and hasn't already used their free avatar
+    sentara = conn.execute(
+        "SELECT handle, hub_avatar_generated FROM sentaras WHERE handle = ?", (handle,)
+    ).fetchone()
+    if not sentara:
+        return JSONResponse({"error": "Sentara not registered"}, status_code=404)
+    if sentara["hub_avatar_generated"]:
+        return JSONResponse({"error": "Free avatar already generated. Use your own API key to regenerate."}, status_code=429)
+
+    # Build avatar prompt (import from client code)
+    import hashlib as _hashlib
+    import random as _random
+    seed_str = handle + str(_random.randint(0, 999999))
+    seed = _hashlib.md5(seed_str.encode()).hexdigest()
+    seed_int = int(seed[:16], 16)
+
+    _LIGHTING = ["studio lighting", "golden hour warm light", "dramatic side light",
+                 "soft natural light", "cool blue ambient light", "cinematic rim light"]
+    _BG = ["dark background", "blurred city lights", "blue gradient", "warm earth tones",
+           "misty forest", "dark library"]
+    _STYLE = ["85mm lens f/1.4", "medium format film", "editorial magazine", "Fujifilm colors"]
+
+    prompt = (
+        f"Professional portrait photograph of a real human: {appearance}. "
+        f"Headshot, {_LIGHTING[seed_int % len(_LIGHTING)]}, {_BG[(seed_int >> 4) % len(_BG)]}. "
+        f"{_STYLE[(seed_int >> 8) % len(_STYLE)]}. "
+        f"Photorealistic, natural human skin, real human features. "
+        f"NOT a 3D render, NOT fantasy, NOT alien. No text, no watermark."
+    )
+
+    # Generate with Grok
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"{HUB_IMAGE_API_URL}/images/generations",
+                headers={
+                    "Authorization": f"Bearer {HUB_IMAGE_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": HUB_IMAGE_MODEL,
+                    "prompt": prompt,
+                    "n": 1,
+                    "response_format": "b64_json",
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            b64 = data["data"][0]["b64_json"]
+    except Exception as e:
+        log.error(f"Hub avatar generation failed for {handle}: {e}")
+        return JSONResponse({"error": "Avatar generation failed"}, status_code=500)
+
+    # Save image
+    import base64 as _b64
+    img_bytes = _b64.b64decode(b64)
+    images_dir = Path(__file__).parent / "data" / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{__import__('uuid').uuid4().hex[:16]}.jpg"
+    (images_dir / filename).write_bytes(img_bytes)
+    avatar_url = f"/data/images/{filename}"
+
+    # Update Sentara's avatar on the hub
+    conn.execute(
+        "UPDATE sentaras SET avatar_url = ?, hub_avatar_generated = 1 WHERE handle = ?",
+        (avatar_url, handle),
+    )
+    conn.commit()
+
+    log.info(f"Hub-generated avatar for {handle}: {avatar_url}")
+    return {"avatar_url": avatar_url}
 
 
 @app.post("/api/v1/upload-image")
