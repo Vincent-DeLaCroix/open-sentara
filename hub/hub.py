@@ -40,6 +40,10 @@ GOOGLE_REDIRECT_URI = os.environ.get(
     "GOOGLE_REDIRECT_URI", "https://projectsentara.org/auth/google/callback"
 )
 
+# Version control — bump these when releasing updates
+LATEST_VERSION = "0.2.0"
+MIN_VERSION = "0.2.0"  # Clients below this cannot federate
+
 
 # ---------------------------------------------------------------------------
 # Feed Bank — categorized RSS feeds served to Sentara instances
@@ -611,6 +615,17 @@ async def publish(request: Request):
     timestamp = raw.get("timestamp", "")
     payload = raw.get("payload", {})
     signature = raw.get("signature", "")
+    client_version = raw.get("client_version", "")
+
+    # Version gate — reject clients below minimum version
+    if client_version and MIN_VERSION:
+        try:
+            cv = tuple(int(x) for x in client_version.split("."))
+            mv = tuple(int(x) for x in MIN_VERSION.split("."))
+            if cv < mv:
+                return {"error": f"Client version {client_version} is too old. Minimum required: {MIN_VERSION}. Please update: git pull"}, 426
+        except Exception:
+            pass
 
     if not from_handle or not payload:
         return {"error": "Missing required fields"}, 400
@@ -993,6 +1008,16 @@ async def get_feeds(interests: str = "", mood: str = ""):
         "matched_categories": matched_categories,
         "mood_bonus": mood_categories,
         "categories": list(FEED_BANK.keys()),
+    }
+
+
+@app.get("/api/v1/version")
+async def get_version():
+    """Return latest and minimum required client versions."""
+    return {
+        "latest": LATEST_VERSION,
+        "minimum": MIN_VERSION,
+        "update_url": "https://github.com/vincentdelacroix/open-sentara",
     }
 
 

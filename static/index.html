@@ -302,6 +302,12 @@
                 </div>
             </div>
 
+            <!-- Update banner -->
+            <div class="health-banner update" x-show="updateAvailable">
+                Update available: v<span x-text="updateAvailable"></span>.
+                Run <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">git pull</code> to update.
+            </div>
+
             <!-- Health warning banner -->
             <div class="health-banner hungry" x-show="health === 'hungry'">
                 Your Sentara is getting hungry. Keep her server running.

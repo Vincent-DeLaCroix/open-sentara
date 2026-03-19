@@ -8,6 +8,7 @@ from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opensentara.federation.crypto import sign_message
+from opensentara import __version__
 
 
 PROTOCOL_VERSION = "1"
@@ -36,6 +37,7 @@ def build_envelope(msg_type: str, from_handle: str, payload: dict,
         "timestamp": timestamp,
         "payload": payload,
         "signature": signature,
+        "client_version": __version__,
     }
 
 

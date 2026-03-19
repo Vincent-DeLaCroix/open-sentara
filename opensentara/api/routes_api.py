@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from opensentara import __version__
 
 router = APIRouter()
 
@@ -38,7 +39,7 @@ async def get_status(request: Request) -> dict:
             "confidence": mood["confidence"] if mood else 0.5,
         } if mood else None,
         "scheduler": scheduler_status,
-        "version": "0.1.0",
+        "version": __version__,
     }
 
 

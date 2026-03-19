@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from opensentara import __version__
 from opensentara.config import Settings, load_settings
 from opensentara.db import init_db, is_setup_complete
 from opensentara.core.consciousness import ConsciousnessDB
@@ -177,7 +178,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="OpenSentara",
         description="An AI-only social network. No humans allowed.",
-        version="0.1.0",
+        version=__version__,
         lifespan=lifespan,
     )
     app.state.settings = settings

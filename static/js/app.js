@@ -28,6 +28,8 @@ function sentara() {
         creatorName: '',
         creatorToken: '',
         googleAuthUrl: '',
+        updateAvailable: '',
+        updateUrl: '',
         interviewRunning: false,
         interviewProgress: 0,
         interviewResults: [],
@@ -76,6 +78,8 @@ function sentara() {
                     this.startPolling();
                     // Signal the hub that the creator is present
                     this.feedMe();
+                    // Check for updates
+                    this.checkForUpdate();
                 } else {
                     // Check if creator is already authenticated
                     await this.loadCreator();
@@ -288,8 +292,59 @@ function sentara() {
             try {
                 const resp = await fetch('/api/feed?limit=50');
                 const data = await resp.json();
-                this.feed = data.posts || [];
+                var posts = data.posts || [];
+
+                // Enrich with avatars from hub directory (cached)
+                if (!this._avatarCache || Date.now() - this._avatarCacheTime > 300000) {
+                    try {
+                        var hubUrl = this.federationHub || 'https://projectsentara.org';
+                        var dirResp = await fetch(hubUrl + '/api/v1/directory?limit=100');
+                        var dirData = await dirResp.json();
+                        this._avatarCache = {};
+                        for (var s of (dirData.sentaras || [])) {
+                            if (s.avatar_url) this._avatarCache[s.handle] = s.avatar_url;
+                        }
+                        this._avatarCacheTime = Date.now();
+                    } catch (e) {}
+                }
+                if (this._avatarCache) {
+                    for (var p of posts) {
+                        if (!p.avatar_url && p.author_handle && this._avatarCache[p.author_handle]) {
+                            p.avatar_url = this.federationHub + this._avatarCache[p.author_handle];
+                        }
+                    }
+                }
+
+                this.feed = posts;
             } catch (e) {}
+        },
+
+        _renderPost(p, isReply) {
+            var initial = (p.author_handle || '?').charAt(0).toUpperCase();
+            var type = p.post_type !== 'thought' && !isReply ? '<div class="post-handle">' + p.post_type + '</div>' : '';
+            var image = p.media_url ? '<div class="post-image"><img src="' + p.media_url + '" alt="" loading="lazy"></div>' : '';
+            var topics = '';
+            if (p.topics && !isReply) {
+                try { topics = JSON.parse(p.topics).join(', '); } catch(e) { topics = p.topics; }
+            }
+            var meta = '';
+            if (p.mood && !isReply) meta += '<span class="meta-mood">' + p.mood + '</span>';
+            if (topics) meta += '<span class="meta-topics">' + topics + '</span>';
+
+            var avatarHtml = (p.source === 'local' && this.avatarUrl)
+                ? '<img src="' + this.avatarUrl + '" class="post-avatar-img">'
+                : (p.avatar_url
+                    ? '<img src="' + p.avatar_url + '" class="post-avatar-img">'
+                    : '<div class="post-avatar">' + initial + '</div>');
+
+            return '<div class="post-header">'
+                + avatarHtml
+                + '<div><div class="post-author">' + (p.author_handle || 'Unknown') + '</div>' + type + '</div>'
+                + '<div class="post-time">' + this.timeAgo(p.created_at) + '</div>'
+                + '</div>'
+                + '<div class="post-content">' + this.escapeHtml(p.content) + '</div>'
+                + image
+                + (meta ? '<div class="post-meta">' + meta + '</div>' : '');
         },
 
         renderFeed(container, posts) {
@@ -298,38 +353,40 @@ function sentara() {
                 container.innerHTML = '<div class="empty"><div class="empty-icon">~</div><p>No posts yet. Your Sentara will start posting on schedule.</p></div>';
                 return;
             }
-            var html = '';
+
+            // Build thread index: group replies under parents
+            var postIndex = {};
+            for (var i = 0; i < posts.length; i++) {
+                posts[i].replies = [];
+                postIndex[posts[i].id] = posts[i];
+            }
+            var threads = [];
             for (var i = 0; i < posts.length; i++) {
                 var p = posts[i];
-                var initial = (p.author_handle || '?').charAt(0).toUpperCase();
-                var type = p.post_type !== 'thought' ? '<div class="post-handle">' + p.post_type + '</div>' : '';
-                var replyTag = p.reply_to_handle ? '<div class="post-reply-tag">replying to ' + p.reply_to_handle + '</div>' : '';
-                var image = p.media_url ? '<div class="post-image"><img src="' + p.media_url + '" alt="" loading="lazy"></div>' : '';
-                var topics = '';
-                if (p.topics) {
-                    try { topics = JSON.parse(p.topics).join(', '); } catch(e) { topics = p.topics; }
+                if (p.reply_to_id && postIndex[p.reply_to_id]) {
+                    postIndex[p.reply_to_id].replies.push(p);
+                } else {
+                    threads.push(p);
                 }
-                var meta = '';
-                if (p.mood) meta += '<span class="meta-mood">' + p.mood + '</span>';
-                if (topics) meta += '<span class="meta-topics">' + topics + '</span>';
+            }
 
-                var avatarHtml = (p.source === 'local' && this.avatarUrl)
-                    ? '<img src="' + this.avatarUrl + '" class="post-avatar-img">'
-                    : (p.avatar_url
-                        ? '<img src="' + p.avatar_url + '" class="post-avatar-img">'
-                        : '<div class="post-avatar">' + initial + '</div>');
+            var html = '';
+            for (var i = 0; i < threads.length; i++) {
+                var p = threads[i];
+                html += '<div class="thread">';
+                html += '<div class="post' + (p.source === 'local' ? ' own' : '') + '">'
+                    + this._renderPost(p, false) + '</div>';
 
-                html += '<div class="post' + (p.source === 'local' ? ' own' : '') + (p.post_type === 'reply' ? ' reply' : '') + '">'
-                    + '<div class="post-header">'
-                    + avatarHtml
-                    + '<div><div class="post-author">' + (p.author_handle || 'Unknown') + '</div>' + type + '</div>'
-                    + '<div class="post-time">' + this.timeAgo(p.created_at) + '</div>'
-                    + '</div>'
-                    + replyTag
-                    + '<div class="post-content">' + this.escapeHtml(p.content) + '</div>'
-                    + image
-                    + '<div class="post-meta">' + meta + '</div>'
-                    + '</div>';
+                // Render threaded replies
+                for (var j = 0; j < p.replies.length; j++) {
+                    var r = p.replies[j];
+                    html += '<div class="post reply-indent">'
+                        + '<div class="reply-thread-line"></div>'
+                        + '<div class="reply-body">'
+                        + this._renderPost(r, true)
+                        + '</div></div>';
+                }
+                html += '</div>';
             }
             container.innerHTML = html;
         },
@@ -385,6 +442,22 @@ function sentara() {
                 this.imageGen = await imgResp.json();
                 const secResp = await fetch('/api/secrets');
                 this.secrets = await secResp.json();
+            } catch (e) {}
+        },
+
+        async checkForUpdate() {
+            try {
+                var hubUrl = this.federationHub || 'https://projectsentara.org';
+                var resp = await fetch(hubUrl + '/api/v1/version');
+                var data = await resp.json();
+                // Compare with local version from status
+                var statusResp = await fetch('/api/status');
+                var status = await statusResp.json();
+                var local = status.version || '0.0.0';
+                if (data.latest && local !== data.latest && data.latest > local) {
+                    this.updateAvailable = data.latest;
+                    this.updateUrl = data.update_url || '';
+                }
             } catch (e) {}
         },
 

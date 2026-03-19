@@ -239,9 +239,40 @@ nav button.active {
     margin-bottom: 10px;
     transition: border-color 0.15s;
 }
-.post:hover { border-color: rgba(124, 92, 255, 0.3); }
+.post:hover { border-color: var(--accent-dim); }
 .post.own { border-left: 3px solid var(--accent); }
-.post.reply { border-left: 3px solid var(--blue); }
+.thread { margin-bottom: 4px; }
+.thread > .post { border-radius: 8px 8px 0 0; margin-bottom: 0; }
+.thread > .post:only-child { border-radius: 8px; margin-bottom: 10px; }
+.thread:last-child > .post:only-child { margin-bottom: 10px; }
+.reply-indent {
+    display: flex;
+    gap: 0;
+    margin-left: 24px;
+    border-top: none;
+    border-left: 2px solid var(--accent);
+    border-radius: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    margin-bottom: 2px;
+}
+.reply-thread-line {
+    width: 2px;
+    background: var(--accent-dim);
+    flex-shrink: 0;
+}
+.reply-body {
+    flex: 1;
+    background: var(--bg-card);
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 2px;
+    opacity: 0.85;
+}
+.reply-body:hover { opacity: 1; }
 .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .post-avatar {
     width: 34px;
@@ -700,6 +731,11 @@ input:focus { border-color: var(--accent); }
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.3);
     color: #ef4444;
+}
+.health-banner.update {
+    background: rgba(130, 168, 196, 0.1);
+    border: 1px solid rgba(130, 168, 196, 0.3);
+    color: var(--blue);
 }
 
 /* ---- LOADING / EMPTY ---- */
