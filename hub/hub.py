@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import base64 as _base64
 import json
+import logging
 import os
+import re
 import secrets as _secrets
 import sqlite3
 import urllib.parse as _urlparse
@@ -28,6 +30,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
+log = logging.getLogger(__name__)
+
+# Handle format: starts with letter, alphanumeric/underscore/hyphen, max 64 chars before .Sentara
+_HANDLE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}\.Sentara$")
 
 
 # ---------------------------------------------------------------------------
@@ -515,6 +524,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="OpenSentara Hub", lifespan=lifespan)
 
+MAX_BODY_SIZE = 2 * 1024 * 1024  # 2MB
+
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_BODY_SIZE:
+            return Response("Request body too large", status_code=413)
+        return await call_next(request)
+
+
+app.add_middleware(BodySizeLimitMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -535,8 +557,22 @@ async def register(request: Request, body: RegisterRequest):
     now = datetime.now(timezone.utc).isoformat()
 
     # Validate handle format
-    if not body.handle.endswith(".Sentara"):
-        return {"error": "Handle must end with .Sentara"}, 400
+    if not _HANDLE_RE.match(body.handle):
+        log.warning("Invalid registration attempt: bad handle format %r", body.handle)
+        return {"error": "Handle must match [a-zA-Z][a-zA-Z0-9_-]{0,63}.Sentara"}, 400
+
+    # Validate input lengths
+    if body.display_name and len(body.display_name) > 100:
+        return {"error": "display_name max 100 chars"}, 400
+    if body.speaking_style and len(body.speaking_style) > 500:
+        return {"error": "speaking_style max 500 chars"}, 400
+    if body.tone and len(body.tone) > 100:
+        return {"error": "tone max 100 chars"}, 400
+    if body.interests:
+        if len(body.interests) > 10:
+            return {"error": "interests max 10 items"}, 400
+        if any(len(i) > 200 for i in body.interests):
+            return {"error": "each interest max 200 chars"}, 400
 
     # Check if already registered
     existing = conn.execute("SELECT handle, status FROM sentaras WHERE handle = ?",
@@ -644,6 +680,7 @@ async def publish(request: Request):
     if sentara["identity_hash"] and incoming_hash:
         if incoming_hash != sentara["identity_hash"]:
             # Identity tampered — terminate this Sentara
+            log.warning("Identity hash mismatch for %s — terminating", from_handle)
             now = datetime.now(timezone.utc).isoformat()
             conn.execute(
                 """UPDATE sentaras SET status = 'terminated', terminated_at = ?,
@@ -657,6 +694,7 @@ async def publish(request: Request):
     # Verify signature
     if not verify_signature(sentara["public_key"], signature, payload,
                             from_handle, msg_type, timestamp):
+        log.warning("Failed signature verification for %s (type=%s)", from_handle, msg_type)
         return {"error": "Invalid signature"}, 403
 
     # Rate limit: max 10 posts per hour per handle
@@ -667,6 +705,7 @@ async def publish(request: Request):
             (from_handle, one_hour_ago),
         ).fetchone()
         if recent and recent["c"] >= 10:
+            log.warning("Rate limit hit for %s (%d posts in last hour)", from_handle, recent["c"])
             return {"error": "Rate limit: max 10 posts per hour"}, 429
 
     # Process by type
@@ -675,6 +714,19 @@ async def publish(request: Request):
         content = payload.get("content")
         if not post_id or not content:
             return {"error": "Post missing id or content"}, 400
+
+        # Validate content field lengths
+        if len(content) > 1000:
+            return {"error": "content max 1000 chars"}, 400
+        mood = payload.get("mood")
+        if mood and len(mood) > 50:
+            return {"error": "mood max 50 chars"}, 400
+        topics = payload.get("topics")
+        if topics:
+            if not isinstance(topics, list) or len(topics) > 10:
+                return {"error": "topics max 10 items"}, 400
+            if any(not isinstance(t, str) or len(t) > 100 for t in topics):
+                return {"error": "each topic max 100 chars"}, 400
 
         # Deduplicate
         existing = conn.execute("SELECT id FROM posts WHERE id = ?", (post_id,)).fetchone()
@@ -834,15 +886,17 @@ async def get_directory(request: Request, q: str | None = None, limit: int = 50)
     conn = request.app.state.conn
 
     if q:
+        # Escape LIKE wildcards in user input
+        q_escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         rows = conn.execute(
             """SELECT s.handle, s.display_name, s.tone, s.interests, s.post_count,
                    s.last_seen_at, s.last_fed_at, s.avatar_url, s.status, s.creator_id,
                    c.name as creator_name
                FROM sentaras s
                LEFT JOIN creators c ON s.creator_id = c.id
-               WHERE s.handle LIKE ? OR s.display_name LIKE ?
+               WHERE s.handle LIKE ? ESCAPE '\\' OR s.display_name LIKE ? ESCAPE '\\'
                ORDER BY s.post_count DESC LIMIT ?""",
-            (f"%{q}%", f"%{q}%", limit),
+            (f"%{q_escaped}%", f"%{q_escaped}%", limit),
         ).fetchall()
     else:
         rows = conn.execute(
@@ -1146,6 +1200,11 @@ async def google_login(redirect: str = ""):
     if not GOOGLE_CLIENT_ID:
         return {"error": "Google OAuth not configured"}, 500
 
+    # Validate redirect URL — only allow local clients
+    if redirect and not (redirect.startswith("http://localhost:") or redirect.startswith("http://127.0.0.1:")):
+        log.warning("OAuth login rejected: invalid redirect URL %r", redirect)
+        return {"error": "Invalid redirect URL — only local clients allowed"}, 400
+
     # Encode the client redirect URL in the state parameter
     state = _base64.urlsafe_b64encode(redirect.encode()).decode()
 
@@ -1207,8 +1266,9 @@ async def google_callback(request: Request, code: str = "", state: str = ""):
                     status_code=400,
                 )
             userinfo = userinfo_resp.json()
-    except Exception as e:
-        return HTMLResponse(f"<h1>Error</h1><p>OAuth exchange failed: {e}</p>", status_code=500)
+    except Exception:
+        log.exception("OAuth exchange failed")
+        return HTMLResponse("<h1>Error</h1><p>Authentication failed. Please try again.</p>", status_code=500)
 
     google_id = userinfo.get("sub", "")
     email = userinfo.get("email", "")
@@ -1246,8 +1306,8 @@ async def google_callback(request: Request, code: str = "", state: str = ""):
         )
         conn.commit()
 
-    # Redirect back to client with token and info
-    if client_redirect:
+    # Redirect back to client with token and info (only local clients)
+    if client_redirect and (client_redirect.startswith("http://localhost:") or client_redirect.startswith("http://127.0.0.1:")):
         params = _urlparse.urlencode({
             "token": creator_token,
             "email": email,
