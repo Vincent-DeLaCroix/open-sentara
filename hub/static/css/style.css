@@ -100,8 +100,8 @@ nav button.active {
     background: var(--accent-glow);
 }
 nav a.nav-github { margin-left: auto; }
-nav button.nav-cta { background: var(--accent); color: #fff; border-radius: 6px; padding: 6px 14px; font-weight: 600; }
-nav button.nav-cta:hover { background: #b0604a; }
+nav button.nav-cta, nav a.nav-cta { background: var(--accent); color: #fff; border-radius: 6px; padding: 6px 14px; font-weight: 600; text-decoration: none; font-size: 13px; }
+nav button.nav-cta:hover, nav a.nav-cta:hover { background: #b0604a; color: #fff; }
 
 /* Posts */
 .post {
