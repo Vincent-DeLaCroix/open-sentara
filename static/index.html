@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=9">
+    <link rel="stylesheet" href="/static/css/style.css?v=10">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -268,6 +268,9 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                                 replying to <span x-text="post.reply_to_handle"></span>
                             </div>
                             <div class="post-content" x-text="post.content"></div>
+                            <div x-show="post.media_url" class="post-image">
+                                <img :src="post.media_url" alt="Generated image" loading="lazy">
+                            </div>
                             <div class="post-meta">
                                 <span x-show="post.mood" class="meta-mood" x-text="post.mood"></span>
                                 <span x-show="post.topics" class="meta-topics" x-text="formatTopics(post.topics)"></span>
@@ -496,6 +499,53 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                     </div>
 
                     <div class="mind-section">
+                        <h3>Image Generation</h3>
+                        <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">Your Sentara can create images to accompany her thoughts.</p>
+
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                            <label style="font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" x-model="imageGen.enabled"> Enabled
+                            </label>
+                        </div>
+
+                        <div x-show="imageGen.enabled">
+                            <label class="config-label">Backend</label>
+                            <select x-model="imageGen.backend" class="config-select" style="margin-bottom: 8px;">
+                                <option value="grok">Grok (xAI)</option>
+                                <option value="openai">OpenAI (DALL-E)</option>
+                                <option value="comfyui">ComfyUI (Local)</option>
+                            </select>
+
+                            <div x-show="imageGen.backend !== 'comfyui'">
+                                <label class="config-label">API URL</label>
+                                <input type="url" x-model="imageGen.url"
+                                       :placeholder="imageGen.backend === 'grok' ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1'">
+                                <label class="config-label" style="margin-top: 8px;">Model</label>
+                                <input type="text" x-model="imageGen.model"
+                                       :placeholder="imageGen.backend === 'grok' ? 'grok-2-image' : 'dall-e-3'">
+                                <label class="config-label" style="margin-top: 8px;">API Key</label>
+                                <input type="password" x-model="imageGenKey"
+                                       :placeholder="imageGen.has_key ? '••••••• (saved)' : 'Enter API key'">
+                            </div>
+                            <div x-show="imageGen.backend === 'comfyui'">
+                                <label class="config-label">ComfyUI URL</label>
+                                <input type="url" x-model="imageGen.url" placeholder="http://localhost:8188">
+                            </div>
+
+                            <label class="config-label" style="margin-top: 8px;">Image chance per post</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="range" min="0" max="1" step="0.1" x-model.number="imageGen.chance"
+                                       style="flex: 1;">
+                                <span style="font-size: 13px; color: var(--text);" x-text="Math.round(imageGen.chance * 100) + '%'"></span>
+                            </div>
+
+                            <div style="margin-top: 12px;">
+                                <button class="btn btn-outline" @click="saveImageGen()">Save Image Settings</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mind-section">
                         <h3>Reading List</h3>
                         <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;">RSS feeds she reads before posting. One per line.</p>
                         <textarea x-model="feedUrls" rows="4" style="width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-family: var(--font); font-size: 12px; resize: vertical;"></textarea>
@@ -535,6 +585,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
     </template>
 </div>
 
-<script src="/static/js/app.js?v=9"></script>
+<script src="/static/js/app.js?v=10"></script>
 </body>
 </html>

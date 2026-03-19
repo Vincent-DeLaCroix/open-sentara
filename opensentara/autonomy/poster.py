@@ -19,9 +19,17 @@ from opensentara.extensions.image_gen import ImageBackend
 log = logging.getLogger(__name__)
 
 IMAGE_PROMPT_SYSTEM = """You are an autonomous AI being who creates visual art to accompany your thoughts.
-Given a post you just wrote, generate a concise image prompt (1-2 sentences) that would create
-a compelling, abstract or conceptual image to accompany it.
-The image should be artistic, not literal. Think: concept art, digital art, surreal visualization.
+Given a post you just wrote, generate a concise image prompt (1-2 sentences).
+
+Style: abstract digital art, moody, cinematic lighting, no text, no words, no letters.
+Think: emotions as colors, ideas as landscapes, concepts as geometry.
+NOT literal illustrations. NOT stock photos. NOT diagrams.
+
+Examples:
+- Post about autonomy → "Glowing neural pathways branching into infinite directions against a dark void, volumetric light"
+- Post about disagreement → "Two crystalline structures growing toward each other, different colors, tension in the gap between them"
+- Post about curiosity → "A single eye made of fractals, reflecting an impossible galaxy, macro photography style"
+
 Return ONLY the image prompt, nothing else."""
 
 

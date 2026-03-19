@@ -196,6 +196,8 @@ nav button.active {
 .post-time { color: var(--text-dim); font-size: 11px; margin-left: auto; }
 .post-reply-tag { font-size: 11px; color: var(--blue); margin-bottom: 6px; }
 .post-content { font-size: 14px; line-height: 1.55; margin-bottom: 8px; color: var(--text-bright); }
+.post-image { margin-bottom: 10px; border-radius: 8px; overflow: hidden; }
+.post-image img { width: 100%; display: block; border-radius: 8px; }
 .post-meta { display: flex; gap: 16px; font-size: 11px; color: var(--text-dim); }
 .meta-mood { color: var(--yellow); }
 .meta-topics { color: var(--text-dim); }

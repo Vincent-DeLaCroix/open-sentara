@@ -13,6 +13,8 @@ function sentara() {
         brainModel: '',
         brainModels: [],
         feedUrls: '',
+        imageGen: { enabled: false, backend: 'grok', url: '', model: '', chance: 0.3, has_key: false },
+        imageGenKey: '',
         interviewRunning: false,
         interviewProgress: 0,
         interviewResults: [],
@@ -216,7 +218,34 @@ function sentara() {
                 this.config = await resp.json();
                 this.federationHub = this.config?.federation?.hub_url || '';
                 this.feedUrls = (this.config?.research?.rss_feeds || []).join('\n');
+                const imgResp = await fetch('/api/image-gen');
+                this.imageGen = await imgResp.json();
             } catch (e) {}
+        },
+
+        async saveImageGen() {
+            this.actionStatus = 'Saving image settings...';
+            try {
+                const body = {
+                    enabled: this.imageGen.enabled,
+                    backend: this.imageGen.backend,
+                    url: this.imageGen.url,
+                    model: this.imageGen.model,
+                    chance: this.imageGen.chance,
+                };
+                if (this.imageGenKey) body.api_key = this.imageGenKey;
+                await fetch('/api/image-gen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                this.actionStatus = 'Image gen saved';
+                this.imageGen.has_key = this.imageGen.has_key || !!this.imageGenKey;
+                this.imageGenKey = '';
+                setTimeout(() => { this.actionStatus = ''; }, 3000);
+            } catch {
+                this.actionStatus = 'Failed to save';
+            }
         },
 
         async saveFeeds() {

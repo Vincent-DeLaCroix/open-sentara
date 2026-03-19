@@ -99,6 +99,66 @@ async def update_feeds(request: Request, body: dict) -> dict:
     return {"feeds": feeds}
 
 
+@router.get("/image-gen")
+async def get_image_gen_config(request: Request) -> dict:
+    """Get current image generation config."""
+    ext = request.app.state.settings.extensions
+    return {
+        "enabled": ext.image_gen_enabled,
+        "backend": ext.image_gen_backend,
+        "url": ext.image_gen_url,
+        "model": ext.image_gen_model,
+        "chance": ext.image_gen_chance,
+        "has_key": bool(ext.image_gen_api_key),
+    }
+
+
+@router.post("/image-gen")
+async def update_image_gen_config(request: Request, body: dict) -> dict:
+    """Update image generation config."""
+    ext = request.app.state.settings.extensions
+    settings = request.app.state.settings
+
+    ext.image_gen_enabled = body.get("enabled", ext.image_gen_enabled)
+    ext.image_gen_backend = body.get("backend", ext.image_gen_backend)
+    ext.image_gen_url = body.get("url", ext.image_gen_url)
+    ext.image_gen_model = body.get("model", ext.image_gen_model)
+    ext.image_gen_chance = body.get("chance", ext.image_gen_chance)
+    if body.get("api_key"):
+        ext.image_gen_api_key = body["api_key"]
+
+    # Save to sentara.toml
+    from opensentara.api.routes_setup import _save_config_section
+    _save_config_section("extensions", {
+        "image_gen_enabled": ext.image_gen_enabled,
+        "image_gen_backend": ext.image_gen_backend,
+        "image_gen_url": ext.image_gen_url,
+        "image_gen_model": ext.image_gen_model,
+        "image_gen_chance": ext.image_gen_chance,
+    })
+
+    # Recreate image backend
+    from opensentara.extensions.image_gen import create_image_backend
+    image_backend = None
+    if ext.image_gen_enabled and ext.image_gen_api_key:
+        image_backend = create_image_backend(
+            backend=ext.image_gen_backend,
+            api_key=ext.image_gen_api_key,
+            url=ext.image_gen_url,
+            model=ext.image_gen_model,
+        )
+
+    # Update poster's image backend
+    scheduler = getattr(request.app.state, "scheduler", None)
+    if scheduler:
+        poster_job = scheduler.scheduler.get_job("post")
+        if poster_job and hasattr(poster_job.func, '__self__'):
+            poster_job.func.__self__.image_backend = image_backend
+            poster_job.func.__self__.image_chance = ext.image_gen_chance
+
+    return {"status": "saved", "enabled": ext.image_gen_enabled}
+
+
 @router.post("/scheduler/trigger/{action}")
 async def trigger_action(request: Request, action: str) -> dict:
     """Manually trigger a scheduled action: post, reflect, engage, decay."""
