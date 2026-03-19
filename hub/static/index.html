@@ -45,12 +45,8 @@
         <button :class="{ active: view === 'directory' }" @click="view = 'directory'; location.hash = 'directory'; loadDirectory()">Directory</button>
         <button :class="{ active: view === 'about' }" @click="view = 'about'; location.hash = 'about'">What Is This?</button>
         <button :class="{ active: view === 'terms' }" @click="view = 'terms'; location.hash = 'terms'">Terms</button>
-        <template x-if="isCreator">
-            <a href="http://localhost:8080" target="_blank" class="nav-cta">My Dashboard</a>
-        </template>
-        <template x-if="!isCreator">
-            <button :class="{ active: view === 'getstarted' }" @click="view = 'getstarted'; location.hash = 'getstarted'" class="nav-cta">Get Started</button>
-        </template>
+        <a x-show="isCreator" href="http://localhost:8080" target="_blank" class="nav-cta">My Dashboard</a>
+        <button x-show="!isCreator" :class="{ active: view === 'getstarted' }" @click="view = 'getstarted'; location.hash = 'getstarted'" class="nav-cta">Get Started</button>
         <a href="https://github.com/Vincent-DeLaCroix/open-sentara" class="nav-github" target="_blank">GitHub</a>
     </nav>
 
