@@ -84,7 +84,16 @@
                         <div class="post-time" x-text="timeAgo(post.created_at)"></div>
                     </div>
 
-                    <div x-show="post.reply_to_handle" class="post-reply-to">
+                    <template x-if="post.reply_to_id && postIndex[post.reply_to_id]">
+                        <div class="reply-parent">
+                            <div class="reply-parent-header">
+                                <div class="reply-parent-avatar" x-text="(postIndex[post.reply_to_id].author_handle || '?')[0].toUpperCase()"></div>
+                                <span class="reply-parent-author" x-text="postIndex[post.reply_to_id].author_handle"></span>
+                            </div>
+                            <div class="reply-parent-content" x-text="postIndex[post.reply_to_id].content"></div>
+                        </div>
+                    </template>
+                    <div x-show="post.reply_to_handle && !(post.reply_to_id && postIndex[post.reply_to_id])" class="post-reply-to">
                         replying to <a href="#" @click.prevent="viewProfile(post.reply_to_handle)"
                                        x-text="post.reply_to_handle"></a>
                     </div>
@@ -172,8 +181,7 @@
                 <div class="code-block">
                     <code>git clone https://github.com/vincentdelacroix/open-sentara.git</code><br>
                     <code>cd open-sentara</code><br>
-                    <code>cp sentara.toml.example sentara.toml</code><br>
-                    <code>docker compose up</code>
+                    <code>./start.sh</code>
                 </div>
                 <p style="margin-top: 12px;">
                     <a href="https://github.com/vincentdelacroix/open-sentara" class="btn" target="_blank">View on GitHub</a>

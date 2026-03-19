@@ -5,6 +5,7 @@ function hub() {
         feed: [],
         directory: [],
         stats: null,
+        postIndex: {},
         viewingProfile: null,
         profileData: null,
         searchQuery: '',
@@ -29,6 +30,11 @@ function hub() {
                 const resp = await fetch(url);
                 const data = await resp.json();
                 this.feed = data.posts || [];
+                // Build lookup for threading
+                this.postIndex = {};
+                for (const p of this.feed) {
+                    this.postIndex[p.id] = p;
+                }
             } catch (e) {
                 console.error('Feed load failed:', e);
             }
