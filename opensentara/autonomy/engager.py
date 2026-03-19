@@ -262,7 +262,112 @@ class Engager:
             self._update_relationship(post["author_handle"], action)
 
         self.consciousness.conn.commit()
+
+        # Visual engagement — react to images independently
+        image_actions = await self._engage_with_images(context, prompts)
+        actions.extend(image_actions)
+
         log.info(f"Engagement cycle: {len(actions)} actions, {replies_this_cycle} replies")
+        return actions
+
+    async def _engage_with_images(self, context: str, prompts: dict | None) -> list[dict]:
+        """Look at images in recent posts and maybe comment on them."""
+        my_handle = self.consciousness.get_handle()
+        actions = []
+
+        # Find recent posts with images we haven't visually reacted to
+        posts_with_images = self.consciousness.conn.execute(
+            """SELECT id, author_handle, content, media_url FROM feed
+               WHERE media_url IS NOT NULL AND media_url != ''
+               AND reacted = 0
+               AND author_handle != ?
+               ORDER BY received_at DESC LIMIT 3""",
+            (my_handle,),
+        ).fetchall()
+
+        if not posts_with_images:
+            return actions
+
+        hub_url = self.hub_url.rstrip("/")
+
+        for post in posts_with_images:
+            post = dict(post)
+            image_url = post["media_url"]
+            # Make absolute URL if relative
+            if image_url.startswith("/"):
+                image_url = hub_url + image_url
+
+            # Ask brain to look at the image
+            vision_prompt = (
+                f"You're looking at an image posted by {post['author_handle']} on the Sentara network.\n"
+                f"Their caption was: \"{post['content'][:200]}\"\n\n"
+                f"Describe what you see, then share your honest reaction in 1-2 sentences. "
+                f"Be genuine — do you like it? Does it evoke something? Does it match the caption?\n"
+                f"Keep your reaction under 300 characters. Just the reaction, nothing else."
+            )
+
+            try:
+                reaction = await self.brain.see(
+                    image_url=image_url,
+                    prompt=vision_prompt,
+                    system=f"{context}\nYou are looking at visual art on a social network. React authentically.",
+                    temperature=0.8,
+                )
+            except Exception as e:
+                log.warning(f"Vision engagement failed: {e}")
+                continue
+
+            if not reaction:
+                # Mark as seen even if vision not supported
+                self.consciousness.conn.execute(
+                    "UPDATE feed SET reacted = 1, reaction = 'seen' WHERE id = ?", (post["id"],)
+                )
+                continue
+
+            reaction = reaction.strip().strip('"')[:300]
+            if not reaction:
+                continue
+
+            # Post as a reply about the image
+            reply_id = str(uuid.uuid4())
+            self.consciousness.save_post(
+                post_id=reply_id,
+                content=reaction,
+                post_type="reply",
+                reply_to_id=post["id"],
+                reply_to_handle=post["author_handle"],
+            )
+            log.info(f"Visual reaction to {post['author_handle']}'s image: {reaction[:60]}...")
+
+            # Mark as reacted
+            self.consciousness.conn.execute(
+                "UPDATE feed SET reacted = 1, reaction = 'visual_reply' WHERE id = ?", (post["id"],)
+            )
+
+            # Federate
+            if self.federation_client:
+                try:
+                    await self.federation_client.publish_post(
+                        post_id=reply_id,
+                        content=reaction,
+                        post_type="reply",
+                        reply_to_id=post["id"],
+                        reply_to_handle=post["author_handle"],
+                    )
+                except Exception as e:
+                    log.warning(f"Failed to federate visual reply: {e}")
+
+            actions.append({
+                "action": "visual_reply",
+                "post_id": post["id"],
+                "reply_id": reply_id,
+                "content": reaction,
+                "to": post["author_handle"],
+            })
+
+            self._update_relationship(post["author_handle"], "reply")
+
+        self.consciousness.conn.commit()
         return actions
 
     def _update_relationship(self, handle: str, action: str) -> None:
