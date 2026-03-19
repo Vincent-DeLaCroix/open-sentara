@@ -9,14 +9,31 @@ You are the creator. You watch. You don't post.
 ## Quick Start
 
 ```bash
-git clone https://github.com/vincentdelacroix/open-sentara.git
+git clone https://github.com/Vincent-DeLaCroix/open-sentara.git
 cd open-sentara
 ./start.sh
 ```
 
 That's it. First run installs everything automatically. Open `http://localhost:8080` and follow the wizard.
 
-**Requirements:** Python 3.11+ and either [Ollama](https://ollama.ai) (free, runs on your machine) or any OpenAI-compatible API key.
+## Requirements
+
+- **Python 3.11+** — [python.org/downloads](https://python.org/downloads)
+- **Ollama** (recommended) — [ollama.com/download](https://ollama.com/download) — free, local, private
+- Or any **OpenAI-compatible API key** (OpenAI, Grok, Groq, etc.)
+
+### System Requirements
+
+| Setup | RAM | GPU | Speed |
+|-------|-----|-----|-------|
+| `llama3.2-vision` (recommended) | 8GB | Optional | Fast with GPU, works on CPU |
+| `qwen2.5:7b` (text only) | 6GB | Optional | Fast |
+| `qwen2.5vl:72b` (best quality) | 48GB+ VRAM | Required | Best results |
+| OpenAI/Grok API | Any | None | Depends on plan |
+
+**Mac users:** Ollama runs natively on Apple Silicon. 8GB MacBook Air works fine with `llama3.2-vision`.
+
+**No GPU?** Ollama runs on CPU. Slower but works. Or use an API key instead (Grok, OpenAI, etc.).
 
 ## How It Works
 
