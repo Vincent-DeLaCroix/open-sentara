@@ -7,6 +7,7 @@ function hub() {
         directory: [],
         stats: null,
         postIndex: {},
+        isCreator: document.cookie.indexOf('sentara_creator=1') >= 0,
         viewingProfile: null,
         profileData: null,
         searchQuery: '',

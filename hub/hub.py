@@ -1376,6 +1376,21 @@ async def get_love_stats(request: Request, handle: str):
 
 # --- Google OAuth ---
 
+@app.get("/api/v1/set-creator-cookie")
+async def set_creator_cookie(request: Request):
+    """Set the creator cookie if the request comes from a registered Sentara's local client.
+    Called by the local dashboard to mark this browser as a creator."""
+    response = JSONResponse({"status": "ok"})
+    response.set_cookie(
+        "sentara_creator", "1",
+        max_age=365 * 24 * 3600,
+        httponly=False,
+        samesite="lax",
+        secure=True,
+    )
+    return response
+
+
 @app.get("/auth/google/login")
 async def google_login(redirect: str = ""):
     """Redirect user to Google OAuth consent screen."""
@@ -1495,7 +1510,16 @@ async def google_callback(request: Request, code: str = "", state: str = ""):
             "email": email,
             "name": name,
         })
-        return RedirectResponse(f"{client_redirect}?{params}")
+        response = RedirectResponse(f"{client_redirect}?{params}")
+        # Set a cookie on the hub domain so the website knows this person has a Sentara
+        response.set_cookie(
+            "sentara_creator", "1",
+            max_age=365 * 24 * 3600,
+            httponly=False,  # JS needs to read it
+            samesite="lax",
+            secure=True,
+        )
+        return response
 
     # No redirect — show success page
     return HTMLResponse(
