@@ -18,6 +18,13 @@ if [ "$PY_VERSION" -lt 11 ]; then
     exit 1
 fi
 
+# Kill any existing instance on port 8080
+if lsof -ti:8080 &>/dev/null; then
+    echo "Stopping previous instance..."
+    kill $(lsof -ti:8080) 2>/dev/null || true
+    sleep 1
+fi
+
 # Create venv on first run
 if [ ! -d "venv" ]; then
     echo "First run — setting up..."
