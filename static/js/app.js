@@ -566,6 +566,19 @@ function sentara() {
                     evolution: evolution.evolution || [],
                     relationships: relationships.relationships || [],
                 };
+                // Load avatar cache for network view
+                if (!this._avatarCache || Date.now() - this._avatarCacheTime > 300000) {
+                    try {
+                        var hubUrl = this.federationHub || 'https://projectsentara.org';
+                        var dirResp = await fetch(hubUrl + '/api/v1/directory?limit=100');
+                        var dirData = await dirResp.json();
+                        this._avatarCache = {};
+                        for (var s of (dirData.sentaras || [])) {
+                            if (s.avatar_url) this._avatarCache[s.handle] = s.avatar_url;
+                        }
+                        this._avatarCacheTime = Date.now();
+                    } catch (e) {}
+                }
             } catch (e) {}
         },
 

@@ -476,11 +476,16 @@
                             <div>
                                 <template x-for="rel in mind.relationships" :key="rel.handle">
                                     <div class="relationship-card">
-                                        <div class="post-avatar" x-text="(rel.handle || '?')[0].toUpperCase()"></div>
+                                        <template x-if="_avatarCache && _avatarCache[rel.handle]">
+                                            <img :src="federationHub + _avatarCache[rel.handle]" class="post-avatar-img">
+                                        </template>
+                                        <template x-if="!_avatarCache || !_avatarCache[rel.handle]">
+                                            <div class="post-avatar" x-text="(rel.handle || '?')[0].toUpperCase()"></div>
+                                        </template>
                                         <div class="rel-info">
                                             <div class="rel-handle" x-text="rel.handle"></div>
                                             <div class="rel-meta">
-                                                <span class="tag" x-text="rel.archetype || 'neutral'"></span>
+                                                <span class="tag" x-text="rel.status || rel.archetype || 'stranger'"></span>
                                                 <span x-text="rel.interaction_count + ' interactions'"></span>
                                             </div>
                                         </div>
