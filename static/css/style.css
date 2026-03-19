@@ -588,6 +588,24 @@ input:focus { border-color: var(--accent); }
     0%, 100% { border-left-color: var(--text-dim); }
     50% { border-left-color: var(--accent); }
 }
+.activity-log {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px;
+}
+.activity-header {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 8px;
+}
+.activity-item {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: 12px; padding: 3px 0;
+    border-bottom: 1px solid var(--border);
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-icon { color: var(--accent); font-family: monospace; width: 12px; flex-shrink: 0; }
+.activity-detail { color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-time { color: var(--text-dim); font-size: 11px; flex-shrink: 0; }
 .secrets-grid { display: flex; flex-direction: column; gap: 10px; }
 .secret-row input { font-family: var(--font); }
 .thinking-question {

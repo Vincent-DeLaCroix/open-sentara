@@ -38,6 +38,7 @@ function sentara() {
         federationHub: '',
         actionRunning: null,
         actionStatus: '',
+        activityLog: [],
         pollTimer: null,
 
         async init() {
@@ -276,6 +277,26 @@ function sentara() {
             container.innerHTML = html;
         },
 
+        renderActivity(container, items) {
+            if (!container || !items || items.length === 0) {
+                if (container) container.innerHTML = '';
+                return;
+            }
+            var icons = { posted: '>', read: '~', relationship: '*' };
+            var html = '';
+            for (var i = 0; i < items.length; i++) {
+                var a = items[i];
+                var icon = icons[a.type] || '-';
+                var time = a.time ? this.timeAgo(a.time) : '';
+                html += '<div class="activity-item">'
+                    + '<span class="activity-icon">' + icon + '</span>'
+                    + '<span class="activity-detail">' + this.escapeHtml(a.detail) + '</span>'
+                    + '<span class="activity-time">' + time + '</span>'
+                    + '</div>';
+            }
+            container.innerHTML = html;
+        },
+
         escapeHtml(text) {
             var d = document.createElement('div');
             d.textContent = text;
@@ -401,22 +422,32 @@ function sentara() {
         async triggerAction(action) {
             this.actionRunning = action;
             this.actionStatus = '';
-            const oldCount = this.feed.length;
+            this.activityLog = [];
+            var oldCount = this.feed.length;
             try {
-                await fetch(`/api/scheduler/trigger/${action}`, { method: 'POST' });
-                // Poll until feed changes or timeout (90s max)
-                for (let i = 0; i < 30; i++) {
-                    await new Promise(r => setTimeout(r, 3000));
+                await fetch('/api/scheduler/trigger/' + action, { method: 'POST' });
+                // Poll activity + feed while waiting (90s max)
+                for (var i = 0; i < 30; i++) {
+                    await new Promise(function(r) { setTimeout(r, 3000); });
+                    // Fetch activity log
+                    try {
+                        var actResp = await fetch('/api/activity');
+                        var actData = await actResp.json();
+                        this.activityLog = actData.activity || [];
+                    } catch(e) {}
                     await this.loadFeed();
                     await this.loadStatus();
                     if (this.feed.length !== oldCount) break;
+                    // Check if job finished
+                    var job = this.schedulerJobs.find(function(j) { return j.name === action; });
+                    if (job && !job.running && i > 3) break;
                 }
                 this.actionRunning = null;
-                this.actionStatus = this.feed.length !== oldCount ? '' : `${action} — still processing`;
-                if (this.actionStatus) setTimeout(() => { this.actionStatus = ''; }, 5000);
+                this.actionStatus = this.feed.length !== oldCount ? 'Done' : 'Complete';
+                setTimeout(function() { this.actionStatus = ''; }.bind(this), 5000);
             } catch (e) {
                 this.actionRunning = null;
-                this.actionStatus = `${action} failed`;
+                this.actionStatus = action + ' failed';
             }
         },
 

@@ -344,6 +344,43 @@ async def generate_avatar_endpoint(request: Request) -> dict:
     return {"error": "Generation failed"}
 
 
+@router.get("/activity")
+async def get_activity(request: Request) -> dict:
+    """Get recent activity log — what the Sentara has been doing."""
+    conn = request.app.state.conn
+    consciousness = request.app.state.consciousness
+
+    # Recent posts (last 5)
+    posts = conn.execute(
+        "SELECT post_type, substr(content, 1, 80) as preview, created_at FROM posts "
+        "ORDER BY created_at DESC LIMIT 5"
+    ).fetchall()
+
+    # Recent feed reads (last 5)
+    reads = conn.execute(
+        "SELECT author_handle, substr(content, 1, 60) as preview, read_at FROM feed "
+        "WHERE read_at IS NOT NULL ORDER BY read_at DESC LIMIT 5"
+    ).fetchall()
+
+    # Recent relationship changes
+    rels = conn.execute(
+        "SELECT handle, status, last_seen_at FROM relationships "
+        "ORDER BY last_seen_at DESC LIMIT 3"
+    ).fetchall()
+
+    activity = []
+    for p in posts:
+        activity.append({"type": "posted", "detail": f"{p['post_type']}: {p['preview']}...", "time": p["created_at"]})
+    for r in reads:
+        activity.append({"type": "read", "detail": f"Read {r['author_handle']}: {r['preview']}...", "time": r["read_at"]})
+    for r in rels:
+        activity.append({"type": "relationship", "detail": f"{r['handle']} — {r['status']}", "time": r["last_seen_at"]})
+
+    # Sort by time, newest first
+    activity.sort(key=lambda x: x.get("time") or "", reverse=True)
+    return {"activity": activity[:10]}
+
+
 @router.get("/alive")
 async def is_alive(request: Request) -> dict:
     """Check if the Sentara is alive and her current state."""
