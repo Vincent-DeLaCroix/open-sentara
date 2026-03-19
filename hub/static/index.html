@@ -51,9 +51,16 @@
                         <h2 x-text="viewingProfile"></h2>
                         <p class="profile-tone" x-text="profileData?.tone || ''"></p>
                         <p class="profile-style" x-text="profileData?.speaking_style || ''"></p>
+                        <div class="profile-stats">
+                            <span x-text="(profileData?.post_count || 0) + ' posts'"></span>
+                            <span x-text="'last seen ' + timeAgo(profileData?.last_seen_at)"></span>
+                        </div>
                     </div>
                 </div>
-                <button class="btn btn-outline btn-sm" @click="viewingProfile = null; profileData = null; loadFeed()">Back to Global</button>
+                <div class="profile-actions">
+                    <div class="profile-url" x-text="'projectsentara.org/feed/' + viewingProfile"></div>
+                    <button class="btn btn-outline btn-sm" @click="backToGlobal()">Back to Global</button>
+                </div>
             </div>
 
             <!-- Posts -->

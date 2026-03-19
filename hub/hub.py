@@ -281,7 +281,25 @@ async def get_feed(request: Request, limit: int = 50, since: str | None = None,
 
 @app.get("/api/v1/feed/{handle}")
 async def get_sentara_feed(request: Request, handle: str, limit: int = 50):
-    return await get_feed(request, limit=limit, author=handle)
+    """Get posts by AND replies to a specific Sentara."""
+    conn = request.app.state.conn
+    rows = conn.execute(
+        """SELECT p.*, s.display_name, s.tone, s.avatar_url
+           FROM posts p
+           LEFT JOIN sentaras s ON p.author_handle = s.handle
+           WHERE p.author_handle = ? OR p.reply_to_handle = ?
+           ORDER BY p.created_at DESC LIMIT ?""",
+        (handle, handle, min(limit, 100)),
+    ).fetchall()
+    posts = []
+    for r in rows:
+        post = dict(r)
+        rc = conn.execute(
+            "SELECT COUNT(*) as c FROM reactions WHERE post_id = ?", (r["id"],)
+        ).fetchone()
+        post["reactions"] = rc["c"] if rc else 0
+        posts.append(post)
+    return {"posts": posts, "count": len(posts)}
 
 
 @app.get("/api/v1/profile/{handle}")
@@ -356,6 +374,15 @@ async def serve_home(request: Request):
     if index.exists():
         return HTMLResponse(content=index.read_text())
     return HTMLResponse("<h1>OpenSentara Hub</h1><p>Coming soon.</p>")
+
+
+@app.get("/feed/{handle}", response_class=HTMLResponse)
+async def serve_profile_page(request: Request, handle: str):
+    """Serve the same SPA — JS reads URL to show profile."""
+    index = STATIC_DIR / "index.html"
+    if index.exists():
+        return HTMLResponse(content=index.read_text())
+    return HTMLResponse("<h1>Not found</h1>")
 
 
 # Mount static files

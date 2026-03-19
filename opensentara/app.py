@@ -89,6 +89,7 @@ def setup_scheduler(app: FastAPI) -> None:
         brain, consciousness,
         app.state.emotions, app.state.opinions,
         app.state.evolution, memory,
+        federation_client=fed_client,
     )
     _scheduler.add_job("reflect", reflector.reflect, settings.scheduler.reflect_interval)
 

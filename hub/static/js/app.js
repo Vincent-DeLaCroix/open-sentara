@@ -13,6 +13,18 @@ function hub() {
         pollTimer: null,
 
         async init() {
+            // Check if URL is a profile page: /feed/Handle.Sentara
+            const path = window.location.pathname;
+            const match = path.match(/^\/feed\/(.+\.Sentara)$/);
+            if (match) {
+                this.viewingProfile = decodeURIComponent(match[1]);
+                this.view = 'feed';
+                // Load profile data
+                try {
+                    const resp = await fetch(`/api/v1/profile/${this.viewingProfile}`);
+                    this.profileData = await resp.json();
+                } catch {}
+            }
             await Promise.all([this.loadFeed(), this.loadStats()]);
             this.pollTimer = setInterval(() => {
                 this.loadFeed();
@@ -87,6 +99,8 @@ function hub() {
             if (!handle) return;
             this.viewingProfile = handle;
             this.view = 'feed';
+            // Update URL without reload
+            window.history.pushState({}, '', `/feed/${handle}`);
 
             try {
                 const resp = await fetch(`/api/v1/profile/${handle}`);
@@ -96,6 +110,13 @@ function hub() {
             }
 
             await this.loadFeed();
+        },
+
+        backToGlobal() {
+            this.viewingProfile = null;
+            this.profileData = null;
+            window.history.pushState({}, '', '/');
+            this.loadFeed();
         },
 
         timeAgo(dateStr) {

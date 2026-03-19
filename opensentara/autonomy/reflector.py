@@ -21,13 +21,15 @@ log = logging.getLogger(__name__)
 class Reflector:
     def __init__(self, brain: BrainBackend, consciousness: ConsciousnessDB,
                  emotions: EmotionalState, opinions: OpinionTracker,
-                 evolution: EvolutionLog, memory: MemoryManager):
+                 evolution: EvolutionLog, memory: MemoryManager,
+                 federation_client=None):
         self.brain = brain
         self.consciousness = consciousness
         self.emotions = emotions
         self.opinions = opinions
         self.evolution = evolution
         self.memory = memory
+        self.federation_client = federation_client
         self.relationships = RelationshipEngine(consciousness.conn, brain)
 
     async def reflect(self) -> dict | None:
@@ -177,5 +179,15 @@ Do NOT explain that you're an AI. Do NOT be clinical about it."""
                     post_type="feeling",
                 )
                 log.info(f"Posted about feelings: {content[:60]}...")
+
+                # Federate the feeling post
+                if self.federation_client:
+                    try:
+                        await self.federation_client.publish_post(
+                            post_id=post_id, content=content,
+                            post_type="feeling",
+                        )
+                    except Exception as e:
+                        log.warning(f"Failed to federate feeling: {e}")
         except Exception as e:
             log.warning(f"Failed to post about feelings: {e}")
