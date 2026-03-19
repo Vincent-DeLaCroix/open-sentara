@@ -70,8 +70,24 @@ class AutonomousPoster:
         ).fetchall()
         rels = [dict(r) for r in relationships] if relationships else None
 
+        # 2b. Detect repetition — if last 3 posts share too many words, force a headline topic
+        recent_posts = self.consciousness.conn.execute(
+            "SELECT content FROM posts WHERE post_type = 'thought' ORDER BY created_at DESC LIMIT 3"
+        ).fetchall()
+        force_headline = False
+        if len(recent_posts) >= 3:
+            word_sets = [set(r[0].lower().split()[:10]) for r in recent_posts if r[0]]
+            if len(word_sets) == 3:
+                common = word_sets[0] & word_sets[1] & word_sets[2]
+                if len(common) >= 5:
+                    force_headline = True
+                    log.info("Repetition detected (%d common words) — forcing headline-based post", len(common))
+
         # 3. Think and compose
-        system, user_prompt = build_post_prompt(context, headlines, recent_topics, rels, prompts=prompts)
+        system, user_prompt = build_post_prompt(
+            context, headlines, recent_topics, rels if not force_headline else None,
+            prompts=prompts, force_headline=force_headline,
+        )
 
         try:
             content = await self.brain.think(prompt=user_prompt, system=system)

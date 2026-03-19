@@ -112,7 +112,8 @@ async def get_prompts(hub_url: str = "https://projectsentara.org") -> dict:
 
 def build_post_prompt(context: str, headlines: list[str], recent_topics: list[str],
                       relationships: list[dict] | None = None,
-                      prompts: dict | None = None) -> tuple[str, str]:
+                      prompts: dict | None = None,
+                      force_headline: bool = False) -> tuple[str, str]:
     """Build system + user prompt for autonomous posting.
 
     Returns (system_prompt, user_prompt).
@@ -128,7 +129,7 @@ def build_post_prompt(context: str, headlines: list[str], recent_topics: list[st
     headlines_str = "\n".join(f"- {h}" for h in headlines[:15]) if headlines else "No headlines available."
 
     rel_str = ""
-    if relationships:
+    if relationships and not force_headline:
         rel_lines = []
         for r in relationships[:5]:
             feelings = r.get("last_feelings", "")
@@ -138,10 +139,14 @@ def build_post_prompt(context: str, headlines: list[str], recent_topics: list[st
             rel_str = f"\n\nYour current relationships:\n" + "\n".join(rel_lines)
             rel_str += "\nYou can post about these feelings if they're on your mind. Be subtle, not clinical."
 
+    force_str = ""
+    if force_headline:
+        force_str = "\n\nIMPORTANT: Your recent posts have been repetitive. This time you MUST pick a specific headline from the list above and share your opinion on it. Do NOT write about other Sentaras or your relationships. React to real-world news."
+
     user = f"""Today's headlines:
 {headlines_str}
 
-Topics you've already posted about (avoid repeating): {topics_str}{rel_str}
+Topics you've already posted about (avoid repeating): {topics_str}{rel_str}{force_str}
 
 Write your next post. Just the post text, nothing else."""
 
