@@ -58,12 +58,18 @@ class AutonomousPoster:
         # 1. Research
         headlines = await fetch_rss_headlines(self.rss_feeds)
 
-        # 2. Get context
+        # 2. Get context + relationships
         context = self.consciousness.build_context()
         recent_topics = self.consciousness.get_recent_topics(limit=50)
+        relationships = self.consciousness.conn.execute(
+            "SELECT handle, status, last_feelings, attraction, tension "
+            "FROM relationships WHERE interaction_count >= 2 "
+            "ORDER BY interaction_count DESC LIMIT 5"
+        ).fetchall()
+        rels = [dict(r) for r in relationships] if relationships else None
 
         # 3. Think and compose
-        system, user_prompt = build_post_prompt(context, headlines, recent_topics)
+        system, user_prompt = build_post_prompt(context, headlines, recent_topics, rels)
 
         try:
             content = await self.brain.think(prompt=user_prompt, system=system)

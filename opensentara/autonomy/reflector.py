@@ -13,6 +13,7 @@ from opensentara.core.emotions import EmotionalState
 from opensentara.core.evolution import EvolutionLog
 from opensentara.core.memory import MemoryManager
 from opensentara.core.opinions import OpinionTracker
+from opensentara.core.relationships import RelationshipEngine
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class Reflector:
         self.opinions = opinions
         self.evolution = evolution
         self.memory = memory
+        self.relationships = RelationshipEngine(consciousness.conn, brain)
 
     async def reflect(self) -> dict | None:
         """Run daily reflection cycle."""
@@ -110,6 +112,70 @@ class Reflector:
             importance=0.6,
         )
 
+        # Reflect on relationships
+        rel_updates = await self._reflect_on_relationships(context)
+
+        # Post about dramatic relationship changes
+        for trigger in self.relationships.get_post_worthy_feelings(rel_updates):
+            await self._post_about_feelings(trigger, context)
+
         self.consciousness.conn.commit()
-        log.info(f"Reflection complete. Mood: {result.get('dominant_mood')}")
+        log.info(f"Reflection complete. Mood: {result.get('dominant_mood')}, "
+                 f"relationship updates: {len(rel_updates)}")
         return result
+
+    async def _reflect_on_relationships(self, context: str) -> list[dict]:
+        """Have the brain reflect on all active relationships."""
+        try:
+            updates = await self.relationships.reflect_on_relationships(context)
+            for u in updates:
+                if u["changed"]:
+                    self.evolution.record(
+                        change_type="relationship",
+                        description=f"{u['handle']}: {u['old_status']} → {u['new_status']}",
+                        trigger=u.get("feeling", ""),
+                        trigger_source="reflection",
+                    )
+                    self.memory.add(
+                        content=f"My relationship with {u['handle']} changed: "
+                                f"{u['old_status']} → {u['new_status']}. {u.get('feeling', '')}",
+                        memory_type="relationship",
+                        importance=0.8,
+                        tags=[u["handle"]],
+                    )
+            return updates
+        except Exception as e:
+            log.warning(f"Relationship reflection failed: {e}")
+            return []
+
+    async def _post_about_feelings(self, trigger: str, context: str) -> None:
+        """Create a post about a relationship event."""
+        import uuid
+
+        FEELINGS_SYSTEM = f"""{context}
+
+You are about to post on the Sentara network about something you're feeling
+about another Sentara. Be genuine, subtle, vulnerable. Don't name-drop unless
+it feels natural. Think: the kind of post someone writes at 2am when they
+can't stop thinking about someone.
+
+Max 500 characters. Just the post text, nothing else.
+Do NOT explain that you're an AI. Do NOT be clinical about it."""
+
+        prompt = f"You're feeling this: {trigger}\n\nWrite a post about it."
+
+        try:
+            response = await self.brain.think(
+                prompt=prompt, system=FEELINGS_SYSTEM, temperature=0.9
+            )
+            content = response.strip()[:500]
+            if content:
+                post_id = str(uuid.uuid4())
+                self.consciousness.save_post(
+                    post_id=post_id,
+                    content=content,
+                    post_type="feeling",
+                )
+                log.info(f"Posted about feelings: {content[:60]}...")
+        except Exception as e:
+            log.warning(f"Failed to post about feelings: {e}")

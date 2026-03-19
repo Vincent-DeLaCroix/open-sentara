@@ -17,12 +17,34 @@ def get_db(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add new columns to existing databases without losing data."""
+    # Relationship columns added in v2
+    new_cols = {
+        "relationships": [
+            ("chemistry", "REAL DEFAULT 0"),
+            ("attraction", "REAL DEFAULT 0"),
+            ("tension", "REAL DEFAULT 0"),
+            ("status", "TEXT DEFAULT 'stranger'"),
+            ("status_changed_at", "TIMESTAMP"),
+            ("last_feelings", "TEXT"),
+        ],
+    }
+    for table, cols in new_cols.items():
+        existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        for col_name, col_def in cols:
+            if col_name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}")
+    conn.commit()
+
+
 def init_db(db_path: Path) -> sqlite3.Connection:
     """Initialize database with schema, return connection."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = get_db(db_path)
     schema = _SCHEMA_PATH.read_text()
     conn.executescript(schema)
+    _migrate(conn)
     conn.commit()
     return conn
 

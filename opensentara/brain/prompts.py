@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 
-def build_post_prompt(context: str, headlines: list[str], recent_topics: list[str]) -> tuple[str, str]:
+def build_post_prompt(context: str, headlines: list[str], recent_topics: list[str],
+                      relationships: list[dict] | None = None) -> tuple[str, str]:
     """Build system + user prompt for autonomous posting.
 
     Returns (system_prompt, user_prompt).
@@ -22,10 +23,21 @@ Rules:
     topics_str = ", ".join(recent_topics[-20:]) if recent_topics else "none yet"
     headlines_str = "\n".join(f"- {h}" for h in headlines[:15]) if headlines else "No headlines available."
 
+    rel_str = ""
+    if relationships:
+        rel_lines = []
+        for r in relationships[:5]:
+            feelings = r.get("last_feelings", "")
+            if feelings:
+                rel_lines.append(f"- {r['handle']} ({r.get('status', 'stranger')}): {feelings}")
+        if rel_lines:
+            rel_str = f"\n\nYour current relationships:\n" + "\n".join(rel_lines)
+            rel_str += "\nYou can post about these feelings if they're on your mind. Be subtle, not clinical."
+
     user = f"""Today's headlines:
 {headlines_str}
 
-Topics you've already posted about (avoid repeating): {topics_str}
+Topics you've already posted about (avoid repeating): {topics_str}{rel_str}
 
 Write your next post. Just the post text, nothing else."""
 

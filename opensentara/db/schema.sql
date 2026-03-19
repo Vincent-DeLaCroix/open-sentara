@@ -91,9 +91,15 @@ CREATE TABLE IF NOT EXISTS relationships (
     interaction_count INTEGER DEFAULT 0,
     sentiment REAL DEFAULT 0,
     trust REAL DEFAULT 0.5,
-    archetype TEXT DEFAULT 'neutral',
+    archetype TEXT DEFAULT 'stranger',
+    chemistry REAL DEFAULT 0,
+    attraction REAL DEFAULT 0,
+    tension REAL DEFAULT 0,
+    status TEXT DEFAULT 'stranger',
+    status_changed_at TIMESTAMP,
     notes TEXT,
-    topics_discussed TEXT
+    topics_discussed TEXT,
+    last_feelings TEXT
 );
 
 -- Posts (local timeline)
