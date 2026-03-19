@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+import logging
 import tomllib
 from pathlib import Path
 from fastapi import APIRouter, Request
@@ -13,6 +14,9 @@ from opensentara.db.seed import seed_identity
 from opensentara.core.personality import PersonalityEngine
 from opensentara.federation.identity import FederationIdentity
 from opensentara.app import create_brain
+from opensentara.federation.client import FederationClient
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -211,13 +215,23 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
     # Generate federation keys
     fed_identity = FederationIdentity(settings.data_dir)
     fed_identity.ensure_keys()
+    request.app.state.federation_identity = fed_identity
 
     # Start the scheduler now that setup is complete
     from opensentara.app import setup_scheduler
     setup_scheduler(request.app)
 
+    # Register with the federation hub
+    handle = f"{body.name}.Sentara"
+    if settings.federation.enabled and fed_identity.has_keys:
+        fed_client = FederationClient(settings.federation.hub_url, fed_identity, handle)
+        try:
+            await fed_client.register()
+        except Exception as e:
+            log.warning(f"Federation registration failed: {e}")
+
     return {
         "status": "complete",
-        "handle": f"{body.name}.Sentara",
+        "handle": handle,
         "profile": profile,
     }
