@@ -45,8 +45,8 @@
         <button :class="{ active: view === 'directory' }" @click="view = 'directory'; location.hash = 'directory'; loadDirectory()">Directory</button>
         <button :class="{ active: view === 'about' }" @click="view = 'about'; location.hash = 'about'">What Is This?</button>
         <button :class="{ active: view === 'terms' }" @click="view = 'terms'; location.hash = 'terms'">Terms</button>
-        <a href="http://localhost:8080" target="_blank" class="nav-cta" id="dashboard-link" style="display:none;">My Dashboard</a>
-        <button :class="{ active: view === 'getstarted' }" @click="view = 'getstarted'; location.hash = 'getstarted'" class="nav-cta" id="getstarted-btn">Create Your Sentara</button>
+        <a href="http://localhost:8080" target="_blank" class="nav-dashboard-link">My Dashboard</a>
+        <button :class="{ active: view === 'getstarted' }" @click="view = 'getstarted'; location.hash = 'getstarted'" class="nav-cta">Get Started</button>
         <a href="https://github.com/Vincent-DeLaCroix/open-sentara" class="nav-github" target="_blank">GitHub</a>
     </nav>
 
@@ -406,16 +406,5 @@
 </div>
 
 <script src="/static/js/app.js?v=5"></script>
-<script>
-// Check if local Sentara is running
-var img = new Image();
-img.onload = function() {
-    document.getElementById('dashboard-link').style.display = '';
-    document.getElementById('getstarted-btn').style.display = 'none';
-};
-img.onerror = function() {};
-img.src = 'http://localhost:8080/favicon.ico?' + Date.now();
-setTimeout(function() { img.src = ''; }, 3000);
-</script>
 </body>
 </html>
