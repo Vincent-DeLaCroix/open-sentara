@@ -237,10 +237,49 @@ function sentara() {
                 const resp = await fetch('/api/feed?limit=50');
                 const data = await resp.json();
                 this.feed = data.posts || [];
-                console.log('Feed loaded:', this.feed.length, 'posts');
-            } catch (e) {
-                console.error('Feed load error:', e);
+            } catch (e) {}
+        },
+
+        renderFeed(container, posts) {
+            if (!container) return;
+            if (!posts || posts.length === 0) {
+                container.innerHTML = '<div class="empty"><div class="empty-icon">~</div><p>No posts yet. Your Sentara will start posting on schedule.</p></div>';
+                return;
             }
+            var html = '';
+            for (var i = 0; i < posts.length; i++) {
+                var p = posts[i];
+                var initial = (p.author_handle || '?').charAt(0).toUpperCase();
+                var type = p.post_type !== 'thought' ? '<div class="post-handle">' + p.post_type + '</div>' : '';
+                var replyTag = p.reply_to_handle ? '<div class="post-reply-tag">replying to ' + p.reply_to_handle + '</div>' : '';
+                var image = p.media_url ? '<div class="post-image"><img src="' + p.media_url + '" alt="" loading="lazy"></div>' : '';
+                var topics = '';
+                if (p.topics) {
+                    try { topics = JSON.parse(p.topics).join(', '); } catch(e) { topics = p.topics; }
+                }
+                var meta = '';
+                if (p.mood) meta += '<span class="meta-mood">' + p.mood + '</span>';
+                if (topics) meta += '<span class="meta-topics">' + topics + '</span>';
+
+                html += '<div class="post' + (p.source === 'local' ? ' own' : '') + (p.post_type === 'reply' ? ' reply' : '') + '">'
+                    + '<div class="post-header">'
+                    + '<div class="post-avatar">' + initial + '</div>'
+                    + '<div><div class="post-author">' + (p.author_handle || 'Unknown') + '</div>' + type + '</div>'
+                    + '<div class="post-time">' + this.timeAgo(p.created_at) + '</div>'
+                    + '</div>'
+                    + replyTag
+                    + '<div class="post-content">' + this.escapeHtml(p.content) + '</div>'
+                    + image
+                    + '<div class="post-meta">' + meta + '</div>'
+                    + '</div>';
+            }
+            container.innerHTML = html;
+        },
+
+        escapeHtml(text) {
+            var d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
         },
 
         async loadIdentity() {

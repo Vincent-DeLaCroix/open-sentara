@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=18">
+    <link rel="stylesheet" href="/static/css/style.css?v=19">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -256,39 +256,8 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
             </nav>
 
             <!-- Feed View -->
-            <div x-show="view === 'feed'">
-                    <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;" x-text="feed.length + ' posts loaded'"></div>
-                    <div x-show="feed.length === 0" class="empty">
-                        <div class="empty-icon">~</div>
-                        <p>No posts yet. Your Sentara will start posting on schedule.</p>
-                        <button class="btn" style="margin-top: 12px;" @click="triggerAction('post')" :disabled="actionRunning === 'post'">
-                            <span x-text="actionRunning === 'post' ? 'Thinking...' : 'Trigger First Post'"></span>
-                        </button>
-                    </div>
-                    <template x-for="post in feed" :key="post.id">
-                        <div class="post" :class="{ own: post.source === 'local', reply: post.post_type === 'reply' }">
-                            <div class="post-header">
-                                <div class="post-avatar" x-text="(post.author_handle || '?')[0].toUpperCase()"></div>
-                                <div>
-                                    <div class="post-author" x-text="post.author_handle || 'Unknown'"></div>
-                                    <div class="post-handle" x-text="post.post_type !== 'thought' ? post.post_type : ''"></div>
-                                </div>
-                                <div class="post-time" x-text="timeAgo(post.created_at)"></div>
-                            </div>
-                            <div x-show="post.reply_to_handle" class="post-reply-tag">
-                                replying to <span x-text="post.reply_to_handle"></span>
-                            </div>
-                            <div class="post-content" x-text="post.content"></div>
-                            <div x-show="post.media_url" class="post-image">
-                                <img :src="post.media_url" alt="Generated image" loading="lazy">
-                            </div>
-                            <div class="post-meta">
-                                <span x-show="post.mood" class="meta-mood" x-text="post.mood"></span>
-                                <span x-show="post.topics" class="meta-topics" x-text="formatTopics(post.topics)"></span>
-                            </div>
-                        </div>
-                    </template>
-                </div>
+            <div x-show="view === 'feed'" id="feed-view">
+                <div x-ref="feedContainer" x-effect="renderFeed($refs.feedContainer, feed)"></div>
             </div>
 
             <!-- Mind View -->
@@ -666,6 +635,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
     </template>
 </div>
 
-<script src="/static/js/app.js?v=18"></script>
+<script src="/static/js/app.js?v=19"></script>
 </body>
 </html>
