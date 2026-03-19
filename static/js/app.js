@@ -186,12 +186,18 @@ function sentara() {
             this.interviewRunning = true;
             this.interviewProgress = 1;
             this.interviewResults = [];
-            // Fetch randomized questions from server
+            // Fetch randomized questions + personality archetype from server
             let questions;
+            let archetype;
             try {
-                const qResp = await fetch('/api/setup/interview/questions');
+                const [qResp, aResp] = await Promise.all([
+                    fetch('/api/setup/interview/questions'),
+                    fetch('/api/setup/interview/archetype'),
+                ]);
                 const qData = await qResp.json();
+                const aData = await aResp.json();
                 questions = qData.questions;
+                archetype = aData.archetype;
             } catch {
                 this.interviewRunning = false;
                 return;
@@ -203,7 +209,7 @@ function sentara() {
                     const resp = await fetch('/api/setup/interview/question', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: this.setupName, question: questions[i] }),
+                        body: JSON.stringify({ name: this.setupName, question: questions[i], archetype: archetype }),
                     });
                     const data = await resp.json();
                     // Reassign array (not push) to guarantee Alpine reactivity

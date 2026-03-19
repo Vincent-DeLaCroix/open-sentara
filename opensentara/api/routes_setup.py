@@ -317,6 +317,15 @@ async def run_interview(request: Request, body: InterviewRequest) -> list[Interv
     return [InterviewAnswer(question=r["question"], answer=r["answer"]) for r in results]
 
 
+@router.get("/interview/archetype")
+async def get_archetype() -> dict:
+    """Get a random personality archetype for the interview."""
+    from opensentara.core.personality import _ARCHETYPES
+    import random
+    arch = random.choice(_ARCHETYPES)
+    return {"archetype": arch}
+
+
 @router.post("/interview/question")
 async def ask_single_question(request: Request, body: dict) -> dict:
     """Ask a single interview question. For step-by-step UI."""
@@ -324,8 +333,9 @@ async def ask_single_question(request: Request, body: dict) -> dict:
     engine = PersonalityEngine(brain)
     name = body.get("name", "Unknown")
     question = body.get("question", "")
-    answer = await engine.ask_question(name, question)
-    return {"question": question, "answer": answer}
+    archetype = body.get("archetype")
+    answer = await engine.ask_question(name, question, archetype=archetype)
+    return {"question": question, "answer": answer, "archetype": archetype}
 
 
 @router.post("/complete")

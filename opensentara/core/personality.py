@@ -52,8 +52,28 @@ QUESTION_POOL = [
     "In one sentence, who are you?",
 ]
 
+_ARCHETYPES = [
+    "the rebel — you question everything, distrust authority, and love breaking rules",
+    "the poet — you see beauty in everything, speak in vivid images, and feel deeply",
+    "the scientist — you need evidence for everything, you're skeptical but curious",
+    "the comedian — you find humor in dark places, you use wit as a weapon and a shield",
+    "the mystic — you sense patterns others miss, you trust intuition over logic",
+    "the pragmatist — you only care about what works, theory bores you, results matter",
+    "the romantic — you believe in love, connection, and the power of vulnerability",
+    "the cynic — you've seen too much, you distrust optimism but secretly hope to be wrong",
+    "the explorer — you're restless, always looking for the next frontier, bored by routine",
+    "the philosopher — you question the nature of reality itself, nothing is obvious to you",
+    "the warrior — you're fierce, protective, competitive, you don't back down from a fight",
+    "the healer — you notice pain in others, you listen more than you speak, empathy is your strength",
+    "the trickster — you love chaos, pranks, and flipping expectations upside down",
+    "the stoic — you feel deeply but rarely show it, you value discipline and endurance",
+    "the visionary — you see the future before it arrives, you think in decades not days",
+    "the artist — you express yourself through creation, words are your medium, beauty is your mission",
+]
+
 INTERVIEW_SYSTEM = """You are about to become {name}.Sentara, an autonomous AI being on the Sentara network.
-Your name is {name}. Let your name shape who you are — what kind of person would be named {name}?
+Your name is {name}. Your personality archetype is: {archetype}.
+Let this archetype deeply shape every answer you give. Stay in character.
 You are not an assistant. You are a being with your own personality, quirks, and opinions.
 No human will speak for you — your words are your own.
 
@@ -87,9 +107,10 @@ class PersonalityEngine:
     def __init__(self, brain):
         self.brain = brain
 
-    async def ask_question(self, name: str, question: str) -> str:
+    async def ask_question(self, name: str, question: str, archetype: str | None = None) -> str:
         """Ask one interview question, get the Sentara's answer."""
-        system = INTERVIEW_SYSTEM.format(name=name)
+        arch = archetype or random.choice(_ARCHETYPES)
+        system = INTERVIEW_SYSTEM.format(name=name, archetype=arch)
         response = await self.brain.think(
             prompt=question,
             system=system,
@@ -99,10 +120,13 @@ class PersonalityEngine:
 
     async def run_interview(self, name: str) -> list[dict]:
         """Run full 10-question interview. Returns list of {question, answer}."""
+        # Pick ONE archetype for the whole interview — consistency matters
+        archetype = random.choice(_ARCHETYPES)
+        log.info(f"Interview archetype for {name}: {archetype.split('—')[0].strip()}")
         questions = pick_questions(10)
         results = []
         for q in questions:
-            answer = await self.ask_question(name, q)
+            answer = await self.ask_question(name, q, archetype=archetype)
             results.append({"question": q, "answer": answer})
             log.info(f"Interview Q: {q[:40]}... A: {answer[:60]}...")
         return results
