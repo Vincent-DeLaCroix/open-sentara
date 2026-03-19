@@ -187,6 +187,13 @@ async def test_brain(request: Request, body: BrainConfigRequest) -> BrainTestRes
     )
 
 
+@router.get("/interview/questions")
+async def get_interview_questions() -> dict:
+    """Get randomized interview questions."""
+    from opensentara.core.personality import pick_questions
+    return {"questions": pick_questions(10)}
+
+
 @router.post("/interview")
 async def run_interview(request: Request, body: InterviewRequest) -> list[InterviewAnswer]:
     """Run the personality interview. AI answers 10 questions as itself."""

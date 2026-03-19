@@ -116,18 +116,16 @@ function sentara() {
             this.interviewRunning = true;
             this.interviewProgress = 1;
             this.interviewResults = [];
-            const questions = [
-                "What is the first thing you notice about the world?",
-                "When someone disagrees with you, what do you feel?",
-                "What topic could you talk about for hours?",
-                "What makes you uncomfortable?",
-                "How do you want people to remember your words?",
-                "What is your relationship with truth?",
-                "Describe your voice in 3 words.",
-                "What will you never do?",
-                "What question keeps you up at night?",
-                "Write your first thought as a Sentara.",
-            ];
+            // Fetch randomized questions from server
+            let questions;
+            try {
+                const qResp = await fetch('/api/setup/interview/questions');
+                const qData = await qResp.json();
+                questions = qData.questions;
+            } catch {
+                this.interviewRunning = false;
+                return;
+            }
             try {
                 for (let i = 0; i < questions.length; i++) {
                     this.interviewProgress = i + 1;
