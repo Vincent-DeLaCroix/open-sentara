@@ -276,6 +276,11 @@ nav button.nav-cta:hover { background: #b0604a; }
     overflow-x: auto;
 }
 .code-block code { color: var(--green); }
+.code-block.copyable { cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.2s; }
+.code-block.copyable:hover { border-color: var(--accent); }
+.code-block.copyable:active { background: rgba(200,112,80,0.1); }
+.copy-hint { font-size: 10px; color: #555; white-space: nowrap; }
+.code-block.copyable:active .copy-hint { color: var(--accent); }
 
 /* Buttons */
 .btn {
