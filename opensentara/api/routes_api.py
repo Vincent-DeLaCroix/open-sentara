@@ -446,6 +446,52 @@ async def resume_sentara(request: Request) -> dict:
     return {"state": "awake"}
 
 
+@router.post("/whisper")
+async def whisper(request: Request) -> dict:
+    """Creator whispers a thought to their Sentara. One per day, 144 chars max."""
+    conn = request.app.state.db
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    content = (body.get("content") or "").strip()
+    if not content:
+        return JSONResponse({"error": "Whisper cannot be empty"}, status_code=400)
+    if len(content) > 144:
+        return JSONResponse({"error": "Whisper max 144 characters"}, status_code=400)
+
+    # Sanitize — strip anything that looks like prompt injection
+    # Only allow printable text, no special control chars
+    import re
+    content = re.sub(r'[^\x20-\x7E\u00A0-\uFFFF]', '', content)
+    if not content:
+        return JSONResponse({"error": "Whisper contains no valid characters"}, status_code=400)
+
+    # Check if already whispered today
+    today = conn.execute(
+        "SELECT id FROM whispers WHERE date(created_at) = date('now') AND consumed_at IS NULL"
+    ).fetchone()
+    if today:
+        return JSONResponse({"error": "You already whispered today. One per day."}, status_code=429)
+
+    conn.execute("INSERT INTO whispers (content) VALUES (?)", (content,))
+    conn.commit()
+    return {"status": "whispered", "content": content}
+
+
+@router.get("/whisper")
+async def get_whisper(request: Request) -> dict:
+    """Get the current unconsumed whisper, if any."""
+    conn = request.app.state.db
+    row = conn.execute(
+        "SELECT id, content, created_at FROM whispers WHERE consumed_at IS NULL ORDER BY created_at DESC LIMIT 1"
+    ).fetchone()
+    if row:
+        return {"whisper": {"id": row["id"], "content": row["content"], "created_at": row["created_at"]}}
+    return {"whisper": None}
+
+
 @router.post("/scheduler/trigger/{action}")
 async def trigger_action(request: Request, action: str) -> dict:
     """Manually trigger a scheduled action: post, reflect, engage, decay."""

@@ -738,6 +738,18 @@ input:focus { border-color: var(--accent); }
     color: var(--blue);
 }
 
+/* ---- WHISPER ---- */
+.whisper-box {
+    background: rgba(200, 112, 80, 0.05);
+    border: 1px solid rgba(200, 112, 80, 0.15);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+.whisper-icon { font-size: 16px; opacity: 0.6; }
+.whisper-current { font-size: 13px; color: #c87050; display: flex; align-items: center; gap: 8px; }
+.whisper-waiting { font-size: 11px; color: #666; }
+
 /* ---- POST TYPE TAGS ---- */
 .post-type-tag {
     display: inline-block;

@@ -31,6 +31,9 @@ function sentara() {
         termsAccepted: false,
         updateAvailable: '',
         updateUrl: '',
+        whisperText: '',
+        whisperPending: '',
+        whisperError: '',
         interviewRunning: false,
         interviewProgress: 0,
         interviewResults: [],
@@ -79,8 +82,9 @@ function sentara() {
                     this.startPolling();
                     // Signal the hub that the creator is present
                     this.feedMe();
-                    // Check for updates
+                    // Check for updates + whisper
                     this.checkForUpdate();
+                    this.loadWhisper();
                 } else {
                     // Check if creator is already authenticated
                     await this.loadCreator();
@@ -462,6 +466,43 @@ function sentara() {
                     this.updateUrl = data.update_url || '';
                 }
             } catch (e) {}
+        },
+
+        async loadWhisper() {
+            try {
+                var resp = await fetch('/api/whisper');
+                var data = await resp.json();
+                if (data.whisper) {
+                    this.whisperPending = data.whisper.content;
+                } else {
+                    this.whisperPending = '';
+                }
+            } catch (e) {}
+        },
+
+        async sendWhisper() {
+            this.whisperError = '';
+            if (!this.whisperText || this.whisperText.length === 0) return;
+            if (this.whisperText.length > 144) {
+                this.whisperError = 'Max 144 characters.';
+                return;
+            }
+            try {
+                var resp = await fetch('/api/whisper', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: this.whisperText }),
+                });
+                var data = await resp.json();
+                if (resp.ok) {
+                    this.whisperPending = this.whisperText;
+                    this.whisperText = '';
+                } else {
+                    this.whisperError = data.error || 'Failed to whisper.';
+                }
+            } catch (e) {
+                this.whisperError = 'Could not reach your Sentara.';
+            }
         },
 
         async feedMe() {

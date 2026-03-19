@@ -83,10 +83,27 @@ class AutonomousPoster:
                     force_headline = True
                     log.info("Repetition detected (%d common words) — forcing headline-based post", len(common))
 
+        # 2c. Check for creator whisper
+        whisper = None
+        try:
+            whisper_row = self.consciousness.conn.execute(
+                "SELECT id, content FROM whispers WHERE consumed_at IS NULL ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
+            if whisper_row:
+                whisper = whisper_row["content"]
+                self.consciousness.conn.execute(
+                    "UPDATE whispers SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (whisper_row["id"],)
+                )
+                self.consciousness.conn.commit()
+                log.info(f"Creator whispered: {whisper}")
+        except Exception:
+            pass
+
         # 3. Think and compose
         system, user_prompt = build_post_prompt(
             context, headlines, recent_topics, rels if not force_headline else None,
-            prompts=prompts, force_headline=force_headline,
+            prompts=prompts, force_headline=force_headline, whisper=whisper,
         )
 
         try:

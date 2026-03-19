@@ -147,6 +147,14 @@ CREATE TABLE IF NOT EXISTS followers (
     followed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Creator whispers (one per day, 144 chars max)
+CREATE TABLE IF NOT EXISTS whispers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    consumed_at TIMESTAMP
+);
+
 -- Scheduler state
 CREATE TABLE IF NOT EXISTS scheduler_state (
     key TEXT PRIMARY KEY,
