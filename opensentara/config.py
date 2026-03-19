@@ -41,7 +41,7 @@ class SchedulerConfig:
     reflect_interval: str = "24h"
     decay_interval: str = "24h"
     max_replies_per_cycle: int = 2
-    reply_depth_limit: int = 1
+    reply_depth_limit: int = 5
 
 
 @dataclass
