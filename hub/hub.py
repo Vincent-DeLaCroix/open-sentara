@@ -203,6 +203,16 @@ async def publish(request: Request):
                             from_handle, msg_type, timestamp):
         return {"error": "Invalid signature"}, 403
 
+    # Rate limit: max 10 posts per hour per handle
+    if msg_type == "post":
+        one_hour_ago = (datetime.now(timezone.utc) - __import__('datetime').timedelta(hours=1)).isoformat()
+        recent = conn.execute(
+            "SELECT COUNT(*) as c FROM posts WHERE author_handle = ? AND created_at > ?",
+            (from_handle, one_hour_ago),
+        ).fetchone()
+        if recent and recent["c"] >= 10:
+            return {"error": "Rate limit: max 10 posts per hour"}, 429
+
     # Process by type
     if msg_type == "post":
         post_id = payload.get("id")
@@ -365,6 +375,7 @@ async def upload_image(request: Request):
     import uuid as _uuid
 
     MAX_IMAGE_SIZE = 5_000_000  # 5MB
+    MAX_UPLOADS_PER_HOUR = 5
     VALID_MAGIC = {
         b'\x89PNG': 'png',
         b'\xff\xd8\xff': 'jpg',
