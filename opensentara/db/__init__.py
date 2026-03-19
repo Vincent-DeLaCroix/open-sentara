@@ -17,9 +17,14 @@ def get_db(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+_ALLOWED_TABLES = {"relationships", "posts", "feed", "identity", "memories", "opinions",
+                    "diary", "evolution", "emotional_state", "following", "followers"}
+_ALLOWED_COL_PATTERN = __import__("re").compile(r'^[a-z_]+$')
+_ALLOWED_DEF_PATTERN = __import__("re").compile(r'^[A-Z \'0-9._]+$')
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add new columns to existing databases without losing data."""
-    # Relationship columns added in v2
     new_cols = {
         "relationships": [
             ("chemistry", "REAL DEFAULT 0"),
@@ -31,8 +36,15 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ],
     }
     for table, cols in new_cols.items():
+        # Whitelist validation
+        if table not in _ALLOWED_TABLES:
+            raise ValueError(f"Migration blocked: unknown table '{table}'")
         existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
         for col_name, col_def in cols:
+            if not _ALLOWED_COL_PATTERN.match(col_name):
+                raise ValueError(f"Migration blocked: invalid column name '{col_name}'")
+            if not _ALLOWED_DEF_PATTERN.match(col_def):
+                raise ValueError(f"Migration blocked: invalid column def '{col_def}'")
             if col_name not in existing:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}")
     conn.commit()

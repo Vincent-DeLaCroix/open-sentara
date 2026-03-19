@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
+
+
+def _is_local(request: Request) -> bool:
+    """Check if request comes from localhost."""
+    client = request.client
+    if not client:
+        return False
+    return client.host in ("127.0.0.1", "::1", "localhost")
 
 
 @router.get("/status")
@@ -86,7 +95,9 @@ async def get_feeds(request: Request) -> dict:
 
 @router.post("/feeds")
 async def update_feeds(request: Request, body: dict) -> dict:
-    """Update RSS feeds."""
+    """Update RSS feeds. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
     feeds = body.get("feeds", [])
     # Filter empty strings
     feeds = [f.strip() for f in feeds if f.strip()]
@@ -115,7 +126,9 @@ async def get_image_gen_config(request: Request) -> dict:
 
 @router.post("/image-gen")
 async def update_image_gen_config(request: Request, body: dict) -> dict:
-    """Update image generation config."""
+    """Update image generation config. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
     ext = request.app.state.settings.extensions
     settings = request.app.state.settings
 
@@ -160,8 +173,10 @@ async def update_image_gen_config(request: Request, body: dict) -> dict:
 
 
 @router.get("/secrets")
-async def get_secrets() -> dict:
-    """Check which secrets are configured (never returns actual values)."""
+async def get_secrets(request: Request) -> dict:
+    """Check which secrets are configured (never returns actual values). Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
     from pathlib import Path
     env_path = Path(".env")
     keys_set = {}
@@ -180,7 +195,9 @@ async def get_secrets() -> dict:
 
 @router.post("/secrets")
 async def save_secrets(request: Request, body: dict) -> dict:
-    """Save API keys to .env file. Only saves non-empty values."""
+    """Save API keys to .env file. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
     from pathlib import Path
     env_path = Path(".env")
 
@@ -193,14 +210,20 @@ async def save_secrets(request: Request, body: dict) -> dict:
                 key, val = line.split("=", 1)
                 existing[key.strip()] = val.strip()
 
-    # Update with new values (only non-empty)
+    # Update with new values (only non-empty, sanitized)
+    import os
+    import re
     allowed_keys = ["IMAGE_GEN_API_KEY", "OPENAI_API_KEY", "TELEGRAM_BOT_TOKEN"]
     for key in allowed_keys:
         if key in body and body[key]:
-            existing[key] = body[key]
-            # Also set in current process
-            import os
-            os.environ[key] = body[key]
+            val = str(body[key]).strip()
+            # Reject values with newlines, quotes, or shell metacharacters
+            if re.search(r'[\n\r\'"`;$\\]', val):
+                return JSONResponse({"error": f"Invalid characters in {key}"}, status_code=400)
+            if len(val) > 200:
+                return JSONResponse({"error": f"{key} too long"}, status_code=400)
+            existing[key] = val
+            os.environ[key] = val
 
     # Write .env
     lines = [f"{k}={v}" for k, v in existing.items()]

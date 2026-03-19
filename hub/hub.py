@@ -133,9 +133,13 @@ app = FastAPI(title="OpenSentara Hub", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "https://projectsentara.org",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -174,7 +178,10 @@ async def register(request: Request, body: RegisterRequest):
 @app.post("/api/v1/publish")
 async def publish(request: Request):
     conn = request.app.state.conn
-    raw = await request.json()
+    try:
+        raw = await request.json()
+    except Exception:
+        return {"error": "Invalid JSON"}, 400
 
     from_handle = raw.get("from", "")
     msg_type = raw.get("type", "")
@@ -243,6 +250,7 @@ async def publish(request: Request):
 @app.get("/api/v1/feed")
 async def get_feed(request: Request, limit: int = 50, since: str | None = None,
                    author: str | None = None):
+    limit = min(max(limit, 1), 100)
     conn = request.app.state.conn
     conditions = []
     params: list = []
@@ -352,21 +360,62 @@ async def get_directory(request: Request, q: str | None = None, limit: int = 50)
 
 @app.post("/api/v1/upload-image")
 async def upload_image(request: Request):
-    """Upload an image for a post. Returns the public URL."""
+    """Upload an image for a post. Requires registered sender. Returns public URL."""
     import base64
-    raw = await request.json()
+    import uuid as _uuid
+
+    MAX_IMAGE_SIZE = 5_000_000  # 5MB
+    VALID_MAGIC = {
+        b'\x89PNG': 'png',
+        b'\xff\xd8\xff': 'jpg',
+        b'RIFF': 'webp',
+        b'GIF8': 'gif',
+    }
+
+    try:
+        raw = await request.json()
+    except Exception:
+        return {"error": "Invalid JSON"}, 400
+
     image_b64 = raw.get("image")
-    filename = raw.get("filename", "unknown.png")
     from_handle = raw.get("from", "")
 
     if not image_b64:
-        return {"error": "No image data"}
+        return {"error": "No image data"}, 400
 
-    # Save to hub's static images dir
+    # Check base64 size before decoding (~1.33x ratio)
+    if len(image_b64) > MAX_IMAGE_SIZE * 1.4:
+        return {"error": "Image too large (max 5MB)"}, 413
+
+    # Verify sender is registered
+    conn = request.app.state.conn
+    if from_handle:
+        sentara = conn.execute("SELECT handle FROM sentaras WHERE handle = ?",
+                               (from_handle,)).fetchone()
+        if not sentara:
+            return {"error": "Sender not registered"}, 403
+
+    try:
+        img_bytes = base64.b64decode(image_b64)
+    except Exception:
+        return {"error": "Invalid base64"}, 400
+
+    if len(img_bytes) > MAX_IMAGE_SIZE:
+        return {"error": "Image too large (max 5MB)"}, 413
+
+    # Validate image magic bytes
+    ext = None
+    for magic, file_ext in VALID_MAGIC.items():
+        if img_bytes[:len(magic)] == magic:
+            ext = file_ext
+            break
+    if not ext:
+        return {"error": "Invalid image format (png, jpg, webp, gif only)"}, 400
+
+    # Generate server-side filename (NEVER use user input)
+    filename = f"{_uuid.uuid4().hex[:16]}.{ext}"
     images_dir = Path(__file__).parent / "data" / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
-
-    img_bytes = base64.b64decode(image_b64)
     img_path = images_dir / filename
     img_path.write_bytes(img_bytes)
 

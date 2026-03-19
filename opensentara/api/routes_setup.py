@@ -7,6 +7,7 @@ import logging
 import tomllib
 from pathlib import Path
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from opensentara.db import is_setup_complete
@@ -135,9 +136,16 @@ async def get_brain_config(request: Request) -> dict:
     }
 
 
+def _is_local(request: Request) -> bool:
+    client = request.client
+    return client is not None and client.host in ("127.0.0.1", "::1", "localhost")
+
+
 @router.post("/test-brain")
 async def test_brain(request: Request, body: BrainConfigRequest) -> BrainTestResponse:
-    """Test brain connection with the provided config. Saves to sentara.toml on success."""
+    """Test brain connection with the provided config. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
     settings = request.app.state.settings
 
     # Apply user's config
@@ -216,7 +224,9 @@ async def ask_single_question(request: Request, body: dict) -> dict:
 
 @router.post("/complete")
 async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
-    """Complete setup: synthesize personality, seed DB, generate keys."""
+    """Complete setup: synthesize personality, seed DB, generate keys. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
     brain = request.app.state.brain
     conn = request.app.state.conn
     settings = request.app.state.settings

@@ -160,6 +160,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
 
+    # Request size limit (2MB)
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import Response
+
+    class SizeLimitMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            content_length = int(request.headers.get("content-length", 0))
+            if content_length > 2_000_000:
+                return Response("Request too large", status_code=413)
+            return await call_next(request)
+
+    app.add_middleware(SizeLimitMiddleware)
+
     # Register routes
     from opensentara.api.routes_setup import router as setup_router
     from opensentara.api.routes_api import router as api_router
