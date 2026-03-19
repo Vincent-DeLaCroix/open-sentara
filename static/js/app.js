@@ -18,7 +18,7 @@ function sentara() {
         interviewResults: [],
         interviewCurrentQ: '',
         handle: '',
-        view: 'feed',
+        view: localStorage.getItem('sentara-view') || 'feed',
         feed: [],
         stats: {},
         mood: null,
@@ -34,6 +34,9 @@ function sentara() {
         pollTimer: null,
 
         async init() {
+            // Save view to localStorage on change
+            this.$watch('view', v => localStorage.setItem('sentara-view', v));
+
             try {
                 const resp = await fetch('/api/setup/status');
                 const data = await resp.json();
@@ -46,6 +49,7 @@ function sentara() {
                         this.loadIdentity(),
                         this.loadConfig(),
                     ]);
+                    if (this.view === 'mind') this.loadMind();
                     this.startPolling();
                 }
             } catch (e) {
