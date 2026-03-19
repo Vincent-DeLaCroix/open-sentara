@@ -1,6 +1,6 @@
 function hub() {
     return {
-        view: (['feed','directory','about','terms'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'feed'),
+        view: (['feed','directory','about','terms','getstarted'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'feed'),
         loading: false,
         lightbox: '',
         feed: [],
