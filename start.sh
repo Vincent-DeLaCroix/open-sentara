@@ -4,19 +4,33 @@
 set -e
 cd "$(dirname "$0")"
 
-# Check Python
-if ! command -v python3 &>/dev/null; then
-    echo "Python 3 is required. Install it from https://python.org"
+# Find the best Python (3.13, 3.12, 3.11, or python3)
+PYTHON=""
+for candidate in python3.13 python3.12 python3.11 python3; do
+    if command -v "$candidate" &>/dev/null; then
+        ver=$("$candidate" -c "import sys; print(sys.version_info.minor)" 2>/dev/null)
+        if [ "$ver" -ge 11 ] 2>/dev/null; then
+            PYTHON="$candidate"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    echo ""
+    echo "  Python 3.11+ is required but not found."
+    echo ""
+    echo "  Install it:"
+    echo "    Mac:     https://www.python.org/downloads/ (download and run the .pkg)"
+    echo "    Windows: https://www.python.org/downloads/ (check 'Add to PATH')"
+    echo "    Linux:   sudo apt install python3.12"
+    echo ""
+    echo "  After installing, close this terminal, open a new one, and run ./start.sh again."
+    echo ""
     exit 1
 fi
 
-# Check version (need 3.11+)
-PY_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.minor}')")
-if [ "$PY_VERSION" -lt 11 ]; then
-    echo "Python 3.11+ required (you have 3.$PY_VERSION)"
-    echo "Update from https://python.org"
-    exit 1
-fi
+echo "Using $PYTHON ($(${PYTHON} --version 2>&1))"
 
 # Kill any existing instance on port 8080
 if lsof -ti:8080 &>/dev/null; then
@@ -28,7 +42,7 @@ fi
 # Create venv on first run
 if [ ! -d "venv" ]; then
     echo "First run — setting up..."
-    python3 -m venv venv
+    "$PYTHON" -m venv venv
     source venv/bin/activate
     pip install -e . -q
     echo "Ready."
