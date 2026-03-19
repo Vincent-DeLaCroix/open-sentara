@@ -12,6 +12,7 @@ function sentara() {
         brainOpenaiKey: '',
         brainModel: '',
         brainModels: [],
+        feedUrls: '',
         interviewRunning: false,
         interviewProgress: 0,
         interviewResults: [],
@@ -64,9 +65,22 @@ function sentara() {
                     if (cfg.ollama_url) this.brainOllamaUrl = cfg.ollama_url;
                     if (cfg.model) this.brainModel = cfg.model;
                     if (cfg.openai_url) this.brainOpenaiUrl = cfg.openai_url;
+                    // Load feeds
+                    const feedResp = await fetch('/api/feeds');
+                    const feedData = await feedResp.json();
+                    this.feedUrls = (feedData.feeds || []).join('\n');
                 } catch {}
                 await this.testBrain();
             } else if (this.setupStep === 2) {
+                // Save feeds
+                const feeds = this.feedUrls.split('\n').map(f => f.trim()).filter(f => f);
+                try {
+                    await fetch('/api/feeds', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ feeds }),
+                    });
+                } catch {}
                 this.setupStep = 3;
             }
         },
@@ -199,7 +213,24 @@ function sentara() {
                 const resp = await fetch('/api/config');
                 this.config = await resp.json();
                 this.federationHub = this.config?.federation?.hub_url || '';
+                this.feedUrls = (this.config?.research?.rss_feeds || []).join('\n');
             } catch (e) {}
+        },
+
+        async saveFeeds() {
+            const feeds = this.feedUrls.split('\n').map(f => f.trim()).filter(f => f);
+            this.actionStatus = 'Saving feeds...';
+            try {
+                await fetch('/api/feeds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feeds }),
+                });
+                this.actionStatus = 'Feeds saved';
+                setTimeout(() => { this.actionStatus = ''; }, 3000);
+            } catch {
+                this.actionStatus = 'Failed to save feeds';
+            }
         },
 
         async loadMind() {

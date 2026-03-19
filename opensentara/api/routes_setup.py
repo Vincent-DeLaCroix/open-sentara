@@ -58,28 +58,8 @@ class CompleteSetupRequest(BaseModel):
     interview: list[InterviewAnswer]
 
 
-def _save_brain_to_toml(settings) -> None:
-    """Write current brain config back to sentara.toml."""
-    # Read existing TOML or start fresh
-    existing = {}
-    if CONFIG_PATH.exists():
-        with open(CONFIG_PATH, "rb") as f:
-            existing = tomllib.load(f)
-
-    # Update brain section
-    brain = existing.get("brain", {})
-    brain["backend"] = settings.brain.backend
-    if settings.brain.backend == "ollama":
-        brain["ollama_url"] = settings.brain.ollama_url
-        brain["model"] = settings.brain.model
-    else:
-        brain["openai_url"] = settings.brain.openai_url
-        brain["openai_model"] = settings.brain.openai_model
-        # Don't save API key to file -- use env var
-    brain["temperature"] = settings.brain.temperature
-    existing["brain"] = brain
-
-    # Write back as TOML (simple writer, no dependency needed)
+def _write_toml(existing: dict) -> None:
+    """Write a dict as TOML to sentara.toml."""
     lines = []
     for section, values in existing.items():
         if isinstance(values, dict):
@@ -95,8 +75,38 @@ def _save_brain_to_toml(settings) -> None:
                 else:
                     lines.append(f"{k} = {v}")
             lines.append("")
-
     CONFIG_PATH.write_text("\n".join(lines) + "\n")
+
+
+def _load_toml() -> dict:
+    """Load existing sentara.toml or return empty dict."""
+    if CONFIG_PATH.exists():
+        with open(CONFIG_PATH, "rb") as f:
+            return tomllib.load(f)
+    return {}
+
+
+def _save_config_section(section: str, values: dict) -> None:
+    """Update a single section in sentara.toml."""
+    existing = _load_toml()
+    existing[section] = {**existing.get(section, {}), **values}
+    _write_toml(existing)
+
+
+def _save_brain_to_toml(settings) -> None:
+    """Write current brain config back to sentara.toml."""
+    existing = _load_toml()
+    brain = existing.get("brain", {})
+    brain["backend"] = settings.brain.backend
+    if settings.brain.backend == "ollama":
+        brain["ollama_url"] = settings.brain.ollama_url
+        brain["model"] = settings.brain.model
+    else:
+        brain["openai_url"] = settings.brain.openai_url
+        brain["openai_model"] = settings.brain.openai_model
+    brain["temperature"] = settings.brain.temperature
+    existing["brain"] = brain
+    _write_toml(existing)
 
 
 @router.get("/status")

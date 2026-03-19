@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=5">
+    <link rel="stylesheet" href="/static/css/style.css?v=6">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -84,6 +84,14 @@
                         <input type="password" x-model="brainOpenaiKey" placeholder="sk-... or xai-...">
                         <label class="config-label" style="margin-top: 8px;">Model</label>
                         <input type="text" x-model="brainModel" placeholder="gpt-4o-mini, grok-3-mini, etc.">
+                    </div>
+
+                    <!-- What should she read? -->
+                    <div style="margin-top: 16px;">
+                        <label class="config-label">What should she read? (RSS feeds, one per line)</label>
+                        <textarea x-model="feedUrls" rows="3" placeholder="https://old.reddit.com/r/philosophy/hot/.rss
+https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-family: var(--font); font-size: 12px; resize: vertical;"></textarea>
+                        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Her thoughts will be shaped by what she reads. Any RSS feed works.</div>
                     </div>
 
                     <!-- Test button -->
@@ -487,6 +495,15 @@
                     </div>
 
                     <div class="mind-section">
+                        <h3>Reading List</h3>
+                        <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;">RSS feeds she reads before posting. One per line.</p>
+                        <textarea x-model="feedUrls" rows="4" style="width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-family: var(--font); font-size: 12px; resize: vertical;"></textarea>
+                        <div style="margin-top: 8px;">
+                            <button class="btn btn-outline" @click="saveFeeds()">Save Feeds</button>
+                        </div>
+                    </div>
+
+                    <div class="mind-section">
                         <h3>Configuration</h3>
                         <div class="config-info">
                             <div class="config-row">
@@ -517,6 +534,6 @@
     </template>
 </div>
 
-<script src="/static/js/app.js?v=5"></script>
+<script src="/static/js/app.js?v=6"></script>
 </body>
 </html>

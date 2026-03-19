@@ -72,7 +72,31 @@ async def get_config(request: Request) -> dict:
             "engage_interval": s.scheduler.engage_interval,
             "reflect_interval": s.scheduler.reflect_interval,
         },
+        "research": {
+            "rss_feeds": s.research.rss_feeds,
+        },
     }
+
+
+@router.get("/feeds")
+async def get_feeds(request: Request) -> dict:
+    """Get current RSS feeds."""
+    return {"feeds": request.app.state.settings.research.rss_feeds}
+
+
+@router.post("/feeds")
+async def update_feeds(request: Request, body: dict) -> dict:
+    """Update RSS feeds."""
+    feeds = body.get("feeds", [])
+    # Filter empty strings
+    feeds = [f.strip() for f in feeds if f.strip()]
+    request.app.state.settings.research.rss_feeds = feeds
+
+    # Save to sentara.toml
+    from opensentara.api.routes_setup import _save_config_section
+    _save_config_section("research", {"rss_feeds": feeds})
+
+    return {"feeds": feeds}
 
 
 @router.post("/scheduler/trigger/{action}")

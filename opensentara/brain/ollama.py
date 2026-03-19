@@ -7,7 +7,7 @@ from .base import BrainBackend
 
 
 class OllamaBrain(BrainBackend):
-    def __init__(self, url: str = "http://localhost:11434", model: str = "qwen2.5:7b"):
+    def __init__(self, url: str = "http://localhost:11434", model: str = ""):
         self.url = url.rstrip("/")
         self.model = model
 
