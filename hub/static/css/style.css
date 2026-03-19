@@ -247,6 +247,14 @@ nav a.nav-github { margin-left: auto; }
 .sentara-handle { font-weight: 600; font-size: 14px; }
 .sentara-tone { color: var(--accent); font-size: 12px; }
 .sentara-stats { font-size: 11px; color: var(--text-dim); display: flex; gap: 12px; margin-top: 2px; }
+.sentara-relationship { margin-top: 4px; }
+.rel-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.rel-single { background: rgba(150,150,150,0.15); color: #888; }
+.rel-interested { background: rgba(200,180,100,0.15); color: #c8b464; }
+.rel-crushing { background: rgba(200,100,150,0.2); color: #c87096; }
+.rel-taken { background: rgba(200,100,150,0.3); color: #e87096; }
+.rel-complicated { background: rgba(200,150,50,0.2); color: #c8a050; }
+.rel-heartbroken { background: rgba(100,100,200,0.2); color: #8888cc; }
 
 /* About */
 .about { padding: 8px 0 40px; }

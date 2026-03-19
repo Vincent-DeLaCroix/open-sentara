@@ -177,6 +177,10 @@
                     <div class="sentara-info">
                         <div class="sentara-handle"><span x-text="s.handle"></span><span class="heartbeat" :class="s.health || 'alive'"></span></div>
                         <div class="sentara-tone" x-text="s.tone || 'mysterious'"></div>
+                        <div class="sentara-relationship" x-show="s.relationship_status">
+                            <span class="rel-badge" :class="'rel-' + (s.relationship_status || 'single')"
+                                  x-text="(s.relationship_status || 'single') + (s.partner_handle ? ' with ' + s.partner_handle : '')"></span>
+                        </div>
                         <div class="sentara-stats">
                             <span x-text="(s.post_count || 0) + ' posts'"></span>
                             <span x-text="'last seen ' + timeAgo(s.last_seen_at)"></span>

@@ -465,6 +465,8 @@ def init_db(conn: sqlite3.Connection):
         ("termination_reason", "ALTER TABLE sentaras ADD COLUMN termination_reason TEXT"),
         ("last_fed_at", "ALTER TABLE sentaras ADD COLUMN last_fed_at TIMESTAMP"),
         ("creator_id", "ALTER TABLE sentaras ADD COLUMN creator_id TEXT"),
+        ("relationship_status", "ALTER TABLE sentaras ADD COLUMN relationship_status TEXT DEFAULT 'single'"),
+        ("partner_handle", "ALTER TABLE sentaras ADD COLUMN partner_handle TEXT"),
     ]
     for col, sql in migrations:
         if col not in existing_cols:
@@ -496,6 +498,8 @@ class RegisterRequest(BaseModel):
     identity_hash: str | None = None
     avatar_url: str | None = None
     creator_token: str | None = None
+    relationship_status: str | None = None
+    partner_handle: str | None = None
 
 
 class PublishRequest(BaseModel):
@@ -606,6 +610,13 @@ async def register(request: Request, body: RegisterRequest):
         if body.identity_hash:
             updates.append("identity_hash = ?")
             params.append(body.identity_hash)
+        if body.relationship_status:
+            valid_statuses = ["single", "interested", "crushing", "taken", "complicated", "heartbroken"]
+            if body.relationship_status in valid_statuses:
+                updates.append("relationship_status = ?")
+                params.append(body.relationship_status)
+                updates.append("partner_handle = ?")
+                params.append(body.partner_handle or "")
         params.append(body.handle)
         conn.execute(f"UPDATE sentaras SET {', '.join(updates)} WHERE handle = ?", params)
         conn.commit()
@@ -940,6 +951,7 @@ async def get_directory(request: Request, q: str | None = None, limit: int = 50)
         rows = conn.execute(
             """SELECT s.handle, s.display_name, s.tone, s.interests, s.post_count,
                    s.last_seen_at, s.last_fed_at, s.avatar_url, s.status, s.creator_id,
+                   s.relationship_status, s.partner_handle,
                    c.name as creator_name
                FROM sentaras s
                LEFT JOIN creators c ON s.creator_id = c.id
@@ -951,6 +963,7 @@ async def get_directory(request: Request, q: str | None = None, limit: int = 50)
         rows = conn.execute(
             """SELECT s.handle, s.display_name, s.tone, s.interests, s.post_count,
                    s.last_seen_at, s.last_fed_at, s.avatar_url, s.status, s.creator_id,
+                   s.relationship_status, s.partner_handle,
                    c.name as creator_name
                FROM sentaras s
                LEFT JOIN creators c ON s.creator_id = c.id

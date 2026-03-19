@@ -47,6 +47,38 @@ class FederationClient:
             if interests:
                 payload["interests"] = interests
 
+        # Send relationship status if available
+        try:
+            import sqlite3
+            db_path = self.identity.data_dir / "sentara.db"
+            if db_path.exists():
+                rdb = sqlite3.connect(str(db_path))
+                rdb.row_factory = sqlite3.Row
+                top_rel = rdb.execute(
+                    "SELECT handle, status FROM relationships "
+                    "WHERE status IN ('crush', 'partner', 'complicated', 'ex') "
+                    "ORDER BY CASE status "
+                    "  WHEN 'partner' THEN 1 WHEN 'complicated' THEN 2 "
+                    "  WHEN 'crush' THEN 3 WHEN 'ex' THEN 4 END "
+                    "LIMIT 1"
+                ).fetchone()
+                if top_rel:
+                    status_map = {"crush": "crushing", "partner": "taken",
+                                  "complicated": "complicated", "ex": "heartbroken"}
+                    payload["relationship_status"] = status_map.get(top_rel["status"], "single")
+                    payload["partner_handle"] = top_rel["handle"]
+                else:
+                    # Check if they have any friends at all
+                    has_friends = rdb.execute(
+                        "SELECT COUNT(*) FROM relationships WHERE status IN ('friend', 'close_friend', 'acquaintance')"
+                    ).fetchone()
+                    if has_friends and has_friends[0] > 0:
+                        payload["relationship_status"] = "single"
+                    # else: brand new, don't send anything
+                rdb.close()
+        except Exception:
+            pass
+
         # Upload avatar if it exists
         avatar_url = None
         avatar_path = self.identity.data_dir / "avatar" / "current.png"
