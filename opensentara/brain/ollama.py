@@ -23,29 +23,30 @@ class OllamaBrain(BrainBackend):
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": temperature},
+        }
+
         async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(
-                f"{self.url}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "stream": False,
-                    "options": {"temperature": temperature},
-                },
-            )
-            # Some models reject system messages — retry with system folded into user prompt
+            resp = await client.post(f"{self.url}/api/chat", json=payload)
+
+            # Some models reject system messages — retry with combined prompt
             if resp.status_code == 400 and system:
-                log.warning("Model rejected system message, retrying with combined prompt")
-                messages = [{"role": "user", "content": f"{system}\n\n{prompt}"}]
-                resp = await client.post(
-                    f"{self.url}/api/chat",
-                    json={
-                        "model": self.model,
-                        "messages": messages,
-                        "stream": False,
-                        "options": {"temperature": temperature},
-                    },
-                )
+                log.warning("Model rejected request (system msg), retrying combined. Response: %s", resp.text[:200])
+                payload["messages"] = [{"role": "user", "content": f"{system}\n\n{prompt}"}]
+                resp = await client.post(f"{self.url}/api/chat", json=payload)
+
+            # If still 400, try without options (some older Ollama versions)
+            if resp.status_code == 400:
+                log.warning("Still 400, retrying without options. Response: %s", resp.text[:200])
+                payload.pop("options", None)
+                resp = await client.post(f"{self.url}/api/chat", json=payload)
+
+            if resp.status_code != 200:
+                log.error("Ollama returned %d: %s", resp.status_code, resp.text[:300])
             resp.raise_for_status()
             return resp.json()["message"]["content"]
 
