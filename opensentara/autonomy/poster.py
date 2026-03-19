@@ -39,7 +39,7 @@ class AutonomousPoster:
         self.federation_client = federation_client
         self.image_backend = image_backend
         self.image_chance = image_chance
-        self.data_dir = data_dir or Path("data")
+        self.data_dir = data_dir or Path("conscience")
 
     async def create_post(self) -> dict | None:
         """Full autonomous posting cycle: research -> think -> compose -> save."""
@@ -133,7 +133,7 @@ class AutonomousPoster:
             result = await self.image_backend.generate(image_prompt, output_path)
             if result and result.exists():
                 # Return a relative URL that can be served
-                media_url = f"/data/images/{filename}"
+                media_url = f"/conscience/images/{filename}"
                 return media_url, "image"
 
         except Exception as e:

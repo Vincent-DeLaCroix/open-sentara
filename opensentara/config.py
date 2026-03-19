@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 DEFAULT_CONFIG_PATH = Path("sentara.toml")
-DEFAULT_DATA_DIR = Path("data")
+DEFAULT_DATA_DIR = Path("conscience")
 
 
 @dataclass
@@ -87,7 +87,7 @@ def load_settings(config_path: Path | None = None) -> Settings:
     settings = Settings()
 
     # Data dir from env
-    env_data = os.environ.get("SENTARA_DATA_DIR")
+    env_data = os.environ.get("SENTARA_CONSCIENCE_DIR")
     if env_data:
         settings.data_dir = Path(env_data)
 

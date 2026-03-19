@@ -8,7 +8,7 @@ build/
 venv/
 .venv/
 .env
-data/
+conscience/
 sentara.toml
 *.db
 *.key
