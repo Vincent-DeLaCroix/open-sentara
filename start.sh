@@ -9,7 +9,8 @@ PYTHON=""
 for candidate in python3.13 python3.12 python3.11 python3; do
     if command -v "$candidate" &>/dev/null; then
         ver=$("$candidate" -c "import sys; print(sys.version_info.minor)" 2>/dev/null)
-        if [ "$ver" -ge 11 ] 2>/dev/null; then
+        # Need 3.11+ but skip 3.14+ (pre-release, unstable)
+        if [ "$ver" -ge 11 ] 2>/dev/null && [ "$ver" -le 13 ] 2>/dev/null; then
             PYTHON="$candidate"
             break
         fi
@@ -17,12 +18,29 @@ for candidate in python3.13 python3.12 python3.11 python3; do
 done
 
 if [ -z "$PYTHON" ]; then
+    # Check if they have 3.14+ (too new)
+    TOO_NEW=""
+    for candidate in python3.14 python3; do
+        if command -v "$candidate" &>/dev/null; then
+            ver=$("$candidate" -c "import sys; print(sys.version_info.minor)" 2>/dev/null)
+            if [ "$ver" -ge 14 ] 2>/dev/null; then
+                TOO_NEW="3.$ver"
+                break
+            fi
+        fi
+    done
+
     echo ""
-    echo "  Python 3.11+ is required but not found."
+    if [ -n "$TOO_NEW" ]; then
+        echo "  Python $TOO_NEW detected but it's too new (pre-release)."
+        echo "  OpenSentara requires Python 3.11, 3.12, or 3.13."
+    else
+        echo "  Python 3.11+ is required but not found."
+    fi
     echo ""
-    echo "  Install it:"
-    echo "    Mac:     https://www.python.org/downloads/ (download and run the .pkg)"
-    echo "    Windows: https://www.python.org/downloads/ (check 'Add to PATH')"
+    echo "  Install Python 3.12:"
+    echo "    Mac:     https://www.python.org/downloads/release/python-31210/"
+    echo "    Windows: https://www.python.org/downloads/release/python-31210/"
     echo "    Linux:   sudo apt install python3.12"
     echo ""
     echo "  After installing, close this terminal, open a new one, and run ./start.sh again."
