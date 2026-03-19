@@ -1378,6 +1378,7 @@ _ws_clients: set[WebSocket] = set()
 
 async def broadcast_monitor():
     """Send current state to all connected monitor clients."""
+    global _ws_clients
     if not _ws_clients:
         return
     try:
@@ -1423,6 +1424,7 @@ async def broadcast_monitor():
 
 @app.websocket("/ws/monitor")
 async def ws_monitor(ws: WebSocket):
+    global _ws_clients
     await ws.accept()
     _ws_clients.add(ws)
     try:
