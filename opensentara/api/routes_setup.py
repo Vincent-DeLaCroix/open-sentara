@@ -9,7 +9,7 @@ import logging
 import tomllib
 from pathlib import Path
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from opensentara.db import is_setup_complete
@@ -22,6 +22,8 @@ from opensentara.federation.client import FederationClient
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+CREATOR_FILE = Path("conscience/creator.json")
 
 CONFIG_PATH = Path("sentara.toml")
 
@@ -68,6 +70,7 @@ class InterviewRequest(BaseModel):
 class CompleteSetupRequest(BaseModel):
     name: str
     interview: list[InterviewAnswer]
+    creator_token: str | None = None
 
 
 def _write_toml(existing: dict) -> None:
@@ -151,6 +154,34 @@ async def setup_status(request: Request) -> SetupStatusResponse:
         name = consciousness.get_name()
         handle = consciousness.get_handle()
     return SetupStatusResponse(complete=complete, name=name, handle=handle)
+
+
+@router.get("/auth-callback")
+async def auth_callback(request: Request, token: str = "", email: str = "", name: str = ""):
+    """Receive OAuth callback from hub, store creator info locally."""
+    if not token:
+        return JSONResponse({"error": "Missing token"}, status_code=400)
+
+    # Store creator info locally
+    CREATOR_FILE.parent.mkdir(parents=True, exist_ok=True)
+    creator_data = {"token": token, "email": email, "name": name}
+    CREATOR_FILE.write_text(json.dumps(creator_data, indent=2))
+    log.info(f"Creator authenticated: {email}")
+
+    # Redirect to main page so the SPA picks up the auth state
+    return RedirectResponse("/")
+
+
+@router.get("/creator")
+async def get_creator_info() -> dict:
+    """Return locally stored creator info, if any."""
+    if CREATOR_FILE.exists():
+        try:
+            data = json.loads(CREATOR_FILE.read_text())
+            return {"authenticated": True, **data}
+        except Exception:
+            pass
+    return {"authenticated": False}
 
 
 @router.get("/brain-config")
@@ -347,6 +378,15 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
                 conn.commit()
                 log.info(f"Avatar generated for {handle}")
 
+    # Load creator token from local file or request body
+    creator_token = body.creator_token
+    if not creator_token and CREATOR_FILE.exists():
+        try:
+            creator_data = json.loads(CREATOR_FILE.read_text())
+            creator_token = creator_data.get("token")
+        except Exception:
+            pass
+
     # Register with the federation hub (after avatar so it gets uploaded)
     handle = f"{body.name}.Sentara"
     if settings.federation.enabled and fed_identity.has_keys:
@@ -359,7 +399,11 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
         for i, interest in enumerate(profile.get("interests", [])):
             identity_data[f"interest_{i}"] = interest
         try:
-            await fed_client.register(identity_hash=identity_hash, identity=identity_data)
+            await fed_client.register(
+                identity_hash=identity_hash,
+                identity=identity_data,
+                creator_token=creator_token,
+            )
         except Exception as e:
             log.warning(f"Federation registration failed: {e}")
 

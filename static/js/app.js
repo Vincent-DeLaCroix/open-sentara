@@ -24,6 +24,10 @@ function sentara() {
         imageGenKey: '',
         secrets: {},
         secretInputs: { IMAGE_GEN_API_KEY: '', OPENAI_API_KEY: '', TELEGRAM_BOT_TOKEN: '', TELEGRAM_CHAT_ID: '' },
+        creatorEmail: '',
+        creatorName: '',
+        creatorToken: '',
+        googleAuthUrl: '',
         interviewRunning: false,
         interviewProgress: 0,
         interviewResults: [],
@@ -72,6 +76,11 @@ function sentara() {
                     this.startPolling();
                     // Signal the hub that the creator is present
                     this.feedMe();
+                } else {
+                    // Check if creator is already authenticated
+                    await this.loadCreator();
+                    // Build Google auth URL using federation hub
+                    await this.buildGoogleAuthUrl();
                 }
             } catch (e) {
                 console.error('Init failed:', e);
@@ -79,9 +88,43 @@ function sentara() {
             this.loading = false;
         },
 
+        async loadCreator() {
+            try {
+                const resp = await fetch('/api/setup/creator');
+                const data = await resp.json();
+                if (data.authenticated) {
+                    this.creatorEmail = data.email || '';
+                    this.creatorName = data.name || '';
+                    this.creatorToken = data.token || '';
+                    // Pre-fill name from Google if empty
+                    if (data.name && !this.setupName) {
+                        // Use first name only as a suggestion
+                        // (don't auto-fill — let the user choose their Sentara's name)
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load creator:', e);
+            }
+        },
+
+        async buildGoogleAuthUrl() {
+            try {
+                const cfgResp = await fetch('/api/config');
+                const cfg = await cfgResp.json();
+                const hubUrl = cfg?.federation?.hub_url || 'https://projectsentara.org';
+                const redirect = window.location.origin + '/api/setup/auth-callback';
+                this.googleAuthUrl = hubUrl + '/auth/google/login?redirect=' + encodeURIComponent(redirect);
+            } catch (e) {
+                this.googleAuthUrl = 'https://projectsentara.org/auth/google/login?redirect=' + encodeURIComponent(window.location.origin + '/api/setup/auth-callback');
+            }
+        },
+
         async nextSetupStep() {
-            if (this.setupStep === 1 && this.setupName) {
+            if (this.setupStep === 1 && this.creatorEmail) {
+                // Google auth done, proceed to name
                 this.setupStep = 2;
+            } else if (this.setupStep === 2 && this.setupName) {
+                this.setupStep = 3;
                 // Load current brain config from sentara.toml
                 try {
                     const cfgResp = await fetch('/api/setup/brain-config');
@@ -92,9 +135,9 @@ function sentara() {
                     if (cfg.openai_url) this.brainOpenaiUrl = cfg.openai_url;
                 } catch {}
                 await this.testBrain();
-            } else if (this.setupStep === 2) {
+            } else if (this.setupStep === 3) {
                 // Feeds now come from the hub based on personality — skip to interview
-                this.setupStep = 3;
+                this.setupStep = 4;
             }
         },
 
@@ -172,6 +215,7 @@ function sentara() {
                     body: JSON.stringify({
                         name: this.setupName,
                         interview: this.interviewResults,
+                        creator_token: this.creatorToken || undefined,
                     }),
                 });
                 const data = await resp.json();

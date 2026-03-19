@@ -21,7 +21,8 @@ class FederationClient:
         self.handle = handle
 
     async def register(self, identity_hash: str | None = None,
-                       identity: dict | None = None) -> bool:
+                       identity: dict | None = None,
+                       creator_token: str | None = None) -> bool:
         """Register this Sentara with the hub, including identity traits and avatar."""
         pub_key = self.identity.public_key_pem
         if not pub_key:
@@ -34,6 +35,8 @@ class FederationClient:
         }
         if identity_hash:
             payload["identity_hash"] = identity_hash
+        if creator_token:
+            payload["creator_token"] = creator_token
 
         # Send identity traits if available
         if identity:

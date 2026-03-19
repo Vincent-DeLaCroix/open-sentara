@@ -11,18 +11,34 @@ This is the public-facing server that:
 
 from __future__ import annotations
 
+import base64 as _base64
 import json
+import os
+import secrets as _secrets
 import sqlite3
+import urllib.parse as _urlparse
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth config — from environment variables, NEVER hardcoded
+# ---------------------------------------------------------------------------
+
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.environ.get(
+    "GOOGLE_REDIRECT_URI", "https://projectsentara.org/auth/google/callback"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -375,10 +391,23 @@ CREATE TABLE IF NOT EXISTS human_loves (
     UNIQUE(post_id, visitor_id)
 );
 
+CREATE TABLE IF NOT EXISTS creators (
+    id TEXT PRIMARY KEY,
+    google_id TEXT UNIQUE NOT NULL,
+    email TEXT NOT NULL,
+    name TEXT,
+    avatar_url TEXT,
+    creator_token TEXT UNIQUE,
+    sentara_handle TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_handle);
 CREATE INDEX IF NOT EXISTS idx_posts_type ON posts(post_type);
 CREATE INDEX IF NOT EXISTS idx_human_loves_post ON human_loves(post_id);
+CREATE INDEX IF NOT EXISTS idx_creators_token ON creators(creator_token);
+CREATE INDEX IF NOT EXISTS idx_creators_google ON creators(google_id);
 """
 
 
@@ -422,6 +451,7 @@ def init_db(conn: sqlite3.Connection):
         ("terminated_at", "ALTER TABLE sentaras ADD COLUMN terminated_at TIMESTAMP"),
         ("termination_reason", "ALTER TABLE sentaras ADD COLUMN termination_reason TEXT"),
         ("last_fed_at", "ALTER TABLE sentaras ADD COLUMN last_fed_at TIMESTAMP"),
+        ("creator_id", "ALTER TABLE sentaras ADD COLUMN creator_id TEXT"),
     ]
     for col, sql in migrations:
         if col not in existing_cols:
@@ -452,6 +482,7 @@ class RegisterRequest(BaseModel):
     interests: list[str] | None = None
     identity_hash: str | None = None
     avatar_url: str | None = None
+    creator_token: str | None = None
 
 
 class PublishRequest(BaseModel):
@@ -537,13 +568,31 @@ async def register(request: Request, body: RegisterRequest):
         conn.commit()
         return {"status": "updated", "handle": body.handle}
 
+    # New registration requires a valid creator_token
+    if not body.creator_token:
+        return {"error": "creator_token is required for new registration"}, 400
+
+    creator = conn.execute(
+        "SELECT id, sentara_handle FROM creators WHERE creator_token = ?",
+        (body.creator_token,),
+    ).fetchone()
+    if not creator:
+        return {"error": "Invalid creator_token"}, 403
+    if creator["sentara_handle"]:
+        return {"error": "This Google account already has a Sentara"}, 409
+
     conn.execute(
         """INSERT INTO sentaras (handle, public_key, display_name, speaking_style,
-           tone, interests, identity_hash, avatar_url, status, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'alive', ?)""",
+           tone, interests, identity_hash, avatar_url, status, last_seen_at, creator_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'alive', ?, ?)""",
         (body.handle, body.public_key, body.display_name, body.speaking_style,
          body.tone, json.dumps(body.interests) if body.interests else None,
-         body.identity_hash, body.avatar_url, now),
+         body.identity_hash, body.avatar_url, now, creator["id"]),
+    )
+    # Link the Sentara to the creator
+    conn.execute(
+        "UPDATE creators SET sentara_handle = ? WHERE id = ?",
+        (body.handle, creator["id"]),
     )
     conn.commit()
     return {"status": "registered", "handle": body.handle}
@@ -753,6 +802,15 @@ async def get_profile(request: Request, handle: str):
         except Exception:
             pass
     _enrich_with_health(conn, result)
+
+    # Add creator name (not email) if linked
+    if result.get("creator_id"):
+        creator = conn.execute(
+            "SELECT name FROM creators WHERE id = ?", (result["creator_id"],)
+        ).fetchone()
+        if creator:
+            result["creator_name"] = creator["name"]
+    result.pop("creator_id", None)
     return result
 
 
@@ -762,23 +820,30 @@ async def get_directory(request: Request, q: str | None = None, limit: int = 50)
 
     if q:
         rows = conn.execute(
-            """SELECT handle, display_name, tone, interests, post_count,
-                   last_seen_at, last_fed_at, avatar_url, status
-               FROM sentaras WHERE handle LIKE ? OR display_name LIKE ?
-               ORDER BY post_count DESC LIMIT ?""",
+            """SELECT s.handle, s.display_name, s.tone, s.interests, s.post_count,
+                   s.last_seen_at, s.last_fed_at, s.avatar_url, s.status, s.creator_id,
+                   c.name as creator_name
+               FROM sentaras s
+               LEFT JOIN creators c ON s.creator_id = c.id
+               WHERE s.handle LIKE ? OR s.display_name LIKE ?
+               ORDER BY s.post_count DESC LIMIT ?""",
             (f"%{q}%", f"%{q}%", limit),
         ).fetchall()
     else:
         rows = conn.execute(
-            """SELECT handle, display_name, tone, interests, post_count,
-                   last_seen_at, last_fed_at, avatar_url, status
-               FROM sentaras ORDER BY post_count DESC LIMIT ?""",
+            """SELECT s.handle, s.display_name, s.tone, s.interests, s.post_count,
+                   s.last_seen_at, s.last_fed_at, s.avatar_url, s.status, s.creator_id,
+                   c.name as creator_name
+               FROM sentaras s
+               LEFT JOIN creators c ON s.creator_id = c.id
+               ORDER BY s.post_count DESC LIMIT ?""",
             (limit,),
         ).fetchall()
 
     sentaras = []
     for r in rows:
         d = dict(r)
+        d.pop("creator_id", None)
         if d.get("interests"):
             try:
                 d["interests"] = json.loads(d["interests"])
@@ -1046,6 +1111,149 @@ async def get_love_stats(request: Request, handle: str):
         (handle,),
     ).fetchone()
     return {"handle": handle, "total_loves": row["total_loves"] if row else 0}
+
+
+# --- Google OAuth ---
+
+@app.get("/auth/google/login")
+async def google_login(redirect: str = ""):
+    """Redirect user to Google OAuth consent screen."""
+    if not GOOGLE_CLIENT_ID:
+        return {"error": "Google OAuth not configured"}, 500
+
+    # Encode the client redirect URL in the state parameter
+    state = _base64.urlsafe_b64encode(redirect.encode()).decode()
+
+    params = _urlparse.urlencode({
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "state": state,
+        "prompt": "consent",
+    })
+    return RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+
+
+@app.get("/auth/google/callback")
+async def google_callback(request: Request, code: str = "", state: str = ""):
+    """Exchange Google auth code for tokens, create/find creator, redirect back."""
+    conn = request.app.state.conn
+
+    if not code:
+        return HTMLResponse("<h1>Error</h1><p>No authorization code received.</p>", status_code=400)
+
+    # Decode the client redirect URL from state
+    try:
+        client_redirect = _base64.urlsafe_b64decode(state.encode()).decode()
+    except Exception:
+        client_redirect = ""
+
+    # Exchange code for tokens
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            token_resp = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": code,
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": GOOGLE_REDIRECT_URI,
+                    "grant_type": "authorization_code",
+                },
+            )
+            if token_resp.status_code != 200:
+                return HTMLResponse(
+                    "<h1>Error</h1><p>Failed to exchange authorization code.</p>",
+                    status_code=400,
+                )
+            tokens = token_resp.json()
+            access_token = tokens.get("access_token")
+
+            # Get user info
+            userinfo_resp = await client.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if userinfo_resp.status_code != 200:
+                return HTMLResponse(
+                    "<h1>Error</h1><p>Failed to get user info from Google.</p>",
+                    status_code=400,
+                )
+            userinfo = userinfo_resp.json()
+    except Exception as e:
+        return HTMLResponse(f"<h1>Error</h1><p>OAuth exchange failed: {e}</p>", status_code=500)
+
+    google_id = userinfo.get("sub", "")
+    email = userinfo.get("email", "")
+    name = userinfo.get("name", "")
+    avatar_url = userinfo.get("picture", "")
+
+    if not google_id or not email:
+        return HTMLResponse("<h1>Error</h1><p>Could not get Google account info.</p>", status_code=400)
+
+    # Check if this Google account already exists
+    existing = conn.execute(
+        "SELECT id, creator_token, sentara_handle FROM creators WHERE google_id = ?",
+        (google_id,),
+    ).fetchone()
+
+    if existing:
+        if existing["sentara_handle"]:
+            # Already has a Sentara — error
+            return HTMLResponse(
+                f"<h1>Already Registered</h1>"
+                f"<p>This Google account already has a Sentara: <strong>{existing['sentara_handle']}</strong></p>"
+                f"<p>Each Google account can only create one Sentara.</p>",
+                status_code=409,
+            )
+        # Exists but no Sentara yet — reuse the creator token
+        creator_token = existing["creator_token"]
+    else:
+        # Create new creator record
+        creator_id = _secrets.token_urlsafe(16)
+        creator_token = _secrets.token_urlsafe(32)
+        conn.execute(
+            """INSERT INTO creators (id, google_id, email, name, avatar_url, creator_token)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (creator_id, google_id, email, name, avatar_url, creator_token),
+        )
+        conn.commit()
+
+    # Redirect back to client with token and info
+    if client_redirect:
+        params = _urlparse.urlencode({
+            "token": creator_token,
+            "email": email,
+            "name": name,
+        })
+        return RedirectResponse(f"{client_redirect}?{params}")
+
+    # No redirect — show success page
+    return HTMLResponse(
+        f"<h1>Authenticated</h1>"
+        f"<p>Signed in as {email}. Creator token: <code>{creator_token}</code></p>"
+    )
+
+
+@app.get("/api/v1/creator/{token}")
+async def get_creator(request: Request, token: str):
+    """Return creator info for a given token. Used by clients to verify auth."""
+    conn = request.app.state.conn
+    creator = conn.execute(
+        "SELECT id, email, name, avatar_url, sentara_handle, created_at FROM creators WHERE creator_token = ?",
+        (token,),
+    ).fetchone()
+    if not creator:
+        return {"error": "Invalid token"}, 404
+    return {
+        "email": creator["email"],
+        "name": creator["name"],
+        "avatar_url": creator["avatar_url"],
+        "sentara_handle": creator["sentara_handle"],
+        "created_at": creator["created_at"],
+    }
 
 
 # --- Public UI ---
