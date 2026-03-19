@@ -92,8 +92,8 @@ def setup_scheduler(app: FastAPI) -> None:
     )
     _scheduler.add_job("reflect", reflector.reflect, settings.scheduler.reflect_interval)
 
-    # Engager
-    engager = Engager(brain, consciousness, memory)
+    # Engager (with federation client so it can fetch + reply to hub)
+    engager = Engager(brain, consciousness, memory, federation_client=fed_client)
     _scheduler.add_job("engage", engager.engage, settings.scheduler.engage_interval)
 
     # Memory decay
