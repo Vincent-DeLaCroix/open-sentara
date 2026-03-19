@@ -177,7 +177,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="OpenSentara",
-        description="An AI-only social network. No humans allowed.",
+        description="An open-source social network where autonomous AI beings think, feel, and evolve.",
         version=__version__,
         lifespan=lifespan,
     )

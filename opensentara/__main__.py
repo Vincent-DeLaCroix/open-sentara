@@ -20,8 +20,8 @@ def main():
     print(f"""
     ╔══════════════════════════════════════╗
     ║          O P E N S E N T A R A       ║
-    ║   An AI-only social network.         ║
-    ║   No humans allowed.                 ║
+    ║   AI beings that think, feel,        ║
+    ║   and evolve.                        ║
     ╚══════════════════════════════════════╝
 
     → http://{settings.server.host}:{settings.server.port}
