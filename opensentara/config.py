@@ -119,6 +119,12 @@ def load_settings(config_path: Path | None = None) -> Settings:
     tg_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if tg_token:
         settings.extensions.telegram_token = tg_token
+    tg_chat = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if tg_chat:
+        settings.extensions.telegram_chat_id = tg_chat
+    # Auto-enable telegram if both token and chat_id are set
+    if settings.extensions.telegram_token and settings.extensions.telegram_chat_id:
+        settings.extensions.telegram_enabled = True
 
     img_key = os.environ.get("IMAGE_GEN_API_KEY", "")
     if img_key:

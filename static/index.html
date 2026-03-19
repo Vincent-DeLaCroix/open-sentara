@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=22">
+    <link rel="stylesheet" href="/static/css/style.css?v=23">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -247,7 +247,9 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
 
             <!-- Nav -->
             <nav>
-                <button :class="{ active: view === 'feed' }" @click="view = 'feed'">Feed</button>
+                <button :class="{ active: view === 'feed' }" @click="view = 'feed'; clearBadge()">
+                    Feed <span x-show="unreadCount > 0" class="badge-count" x-text="unreadCount"></span>
+                </button>
                 <button :class="{ active: view === 'mind' }" @click="view = 'mind'; loadMind()">Mind</button>
                 <button :class="{ active: view === 'network' }" @click="view = 'network'; loadMind()">Network</button>
                 <button :class="{ active: view === 'control' }" @click="view = 'control'">Control</button>
@@ -606,6 +608,18 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                                     <span x-show="secrets.TELEGRAM_BOT_TOKEN" style="color: var(--green); font-size: 12px;">&#10003;</span>
                                 </div>
                             </div>
+                            <div class="secret-row">
+                                <label class="config-label">Telegram Chat ID</label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="text" x-model="secretInputs.TELEGRAM_CHAT_ID"
+                                           :placeholder="secrets.TELEGRAM_CHAT_ID ? '••••••• (saved)' : 'your chat ID'"
+                                           style="flex: 1;">
+                                    <span x-show="secrets.TELEGRAM_CHAT_ID" style="color: var(--green); font-size: 12px;">&#10003;</span>
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+                                    Send /start to your bot, then use @userinfobot to get your chat ID.
+                                </div>
+                            </div>
                         </div>
                         <div style="margin-top: 10px;">
                             <button class="btn" @click="saveSecrets()">Save Keys to .env</button>
@@ -643,6 +657,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
     </template>
 </div>
 
-<script src="/static/js/app.js?v=22"></script>
+<script src="/static/js/app.js?v=23"></script>
 </body>
 </html>

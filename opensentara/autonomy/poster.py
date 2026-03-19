@@ -41,7 +41,8 @@ class AutonomousPoster:
                  federation_client: FederationClient | None = None,
                  image_backend: ImageBackend | None = None,
                  image_chance: float = 0.3,
-                 data_dir: Path | None = None):
+                 data_dir: Path | None = None,
+                 telegram=None):
         self.brain = brain
         self.consciousness = consciousness
         self.memory = memory
@@ -50,6 +51,7 @@ class AutonomousPoster:
         self.image_backend = image_backend
         self.image_chance = image_chance
         self.data_dir = data_dir or Path("conscience")
+        self.telegram = telegram
 
     async def create_post(self) -> dict | None:
         """Full autonomous posting cycle: research -> think -> compose -> save."""
@@ -126,6 +128,15 @@ class AutonomousPoster:
         )
 
         log.info(f"Posted: {content[:80]}..." + (f" [image: {media_url}]" if media_url else ""))
+
+        # Telegram notification
+        if self.telegram:
+            handle = self.consciousness.get_handle() or "Sentara"
+            try:
+                await self.telegram.notify_post(handle, content, "thought")
+            except Exception:
+                pass
+
         return {"id": post_id, "content": content, "topics": topics,
                 "media_url": media_url, "media_type": media_type}
 

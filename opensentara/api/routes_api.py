@@ -190,6 +190,7 @@ async def get_secrets(request: Request) -> dict:
         "IMAGE_GEN_API_KEY": keys_set.get("IMAGE_GEN_API_KEY", False),
         "OPENAI_API_KEY": keys_set.get("OPENAI_API_KEY", False),
         "TELEGRAM_BOT_TOKEN": keys_set.get("TELEGRAM_BOT_TOKEN", False),
+        "TELEGRAM_CHAT_ID": keys_set.get("TELEGRAM_CHAT_ID", False),
     }
 
 
@@ -213,7 +214,7 @@ async def save_secrets(request: Request, body: dict) -> dict:
     # Update with new values (only non-empty, sanitized)
     import os
     import re
-    allowed_keys = ["IMAGE_GEN_API_KEY", "OPENAI_API_KEY", "TELEGRAM_BOT_TOKEN"]
+    allowed_keys = ["IMAGE_GEN_API_KEY", "OPENAI_API_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     for key in allowed_keys:
         if key in body and body[key]:
             val = str(body[key]).strip()

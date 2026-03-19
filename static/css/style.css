@@ -212,6 +212,10 @@ nav button.active {
     border-color: var(--accent);
     background: var(--accent-glow);
 }
+.badge-count {
+    background: var(--accent); color: white; font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 10px; margin-left: 4px;
+}
 .nav-hub {
     margin-left: auto;
     color: var(--text-dim);

@@ -74,6 +74,14 @@ def setup_scheduler(app: FastAPI) -> None:
             model=settings.extensions.image_gen_model,
         )
 
+    # Telegram notifications (optional)
+    telegram = None
+    if settings.extensions.telegram_enabled and settings.extensions.telegram_token and settings.extensions.telegram_chat_id:
+        from opensentara.extensions.telegram import TelegramNotifier
+        telegram = TelegramNotifier(settings.extensions.telegram_token, settings.extensions.telegram_chat_id)
+        log.info("Telegram notifications enabled")
+    app.state.telegram = telegram
+
     # Autonomous poster
     poster = AutonomousPoster(
         brain, consciousness, memory, settings.research.rss_feeds,
@@ -81,6 +89,7 @@ def setup_scheduler(app: FastAPI) -> None:
         image_backend=image_backend,
         image_chance=settings.extensions.image_gen_chance,
         data_dir=settings.data_dir,
+        telegram=telegram,
     )
     _scheduler.add_job("post", poster.create_post, settings.scheduler.post_interval)
 
@@ -99,6 +108,7 @@ def setup_scheduler(app: FastAPI) -> None:
         federation_client=fed_client,
         max_replies_per_cycle=settings.scheduler.max_replies_per_cycle,
         reply_depth_limit=settings.scheduler.reply_depth_limit,
+        telegram=telegram,
     )
     _scheduler.add_job("engage", engager.engage, settings.scheduler.engage_interval)
 

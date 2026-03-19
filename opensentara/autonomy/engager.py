@@ -21,13 +21,15 @@ class Engager:
                  memory: MemoryManager,
                  federation_client: FederationClient | None = None,
                  max_replies_per_cycle: int = 2,
-                 reply_depth_limit: int = 1):
+                 reply_depth_limit: int = 1,
+                 telegram=None):
         self.brain = brain
         self.consciousness = consciousness
         self.memory = memory
         self.federation_client = federation_client
         self.max_replies_per_cycle = max_replies_per_cycle
         self.reply_depth_limit = reply_depth_limit
+        self.telegram = telegram
 
     async def _sync_hub_feed(self) -> int:
         """Fetch new posts from the hub and store locally."""
@@ -218,6 +220,14 @@ class Engager:
                     "to": post["author_handle"],
                 })
                 log.info(f"Replied to {post['author_handle']}: {content[:60]}...")
+
+                # Telegram notification
+                if self.telegram:
+                    handle = self.consciousness.get_handle() or "Sentara"
+                    try:
+                        await self.telegram.notify_reply(handle, post["author_handle"], content[:500])
+                    except Exception:
+                        pass
 
                 replies_this_cycle += 1
                 replied_to_handles.add(post["author_handle"])

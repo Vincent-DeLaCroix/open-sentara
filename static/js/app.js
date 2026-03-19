@@ -19,7 +19,7 @@ function sentara() {
         imageGen: { enabled: false, backend: 'grok', url: '', model: '', chance: 0.3, has_key: false },
         imageGenKey: '',
         secrets: {},
-        secretInputs: { IMAGE_GEN_API_KEY: '', OPENAI_API_KEY: '', TELEGRAM_BOT_TOKEN: '' },
+        secretInputs: { IMAGE_GEN_API_KEY: '', OPENAI_API_KEY: '', TELEGRAM_BOT_TOKEN: '', TELEGRAM_CHAT_ID: '' },
         interviewRunning: false,
         interviewProgress: 0,
         interviewResults: [],
@@ -40,6 +40,9 @@ function sentara() {
         actionStatus: '',
         activityLog: [],
         pollTimer: null,
+        lastPostCount: 0,
+        unreadCount: 0,
+        notificationsEnabled: false,
 
         async init() {
             // Save view to localStorage on change
@@ -349,7 +352,7 @@ function sentara() {
                     body: JSON.stringify(body),
                 });
                 // Clear inputs, refresh status
-                this.secretInputs = { IMAGE_GEN_API_KEY: '', OPENAI_API_KEY: '', TELEGRAM_BOT_TOKEN: '' };
+                this.secretInputs = { IMAGE_GEN_API_KEY: '', OPENAI_API_KEY: '', TELEGRAM_BOT_TOKEN: '', TELEGRAM_CHAT_ID: '' };
                 const secResp = await fetch('/api/secrets');
                 this.secrets = await secResp.json();
                 const imgResp = await fetch('/api/image-gen');
@@ -458,10 +461,51 @@ function sentara() {
         },
 
         startPolling() {
-            this.pollTimer = setInterval(() => {
-                this.loadFeed();
-                this.loadStatus();
-            }, 30000);
+            this.lastPostCount = this.feed.length;
+            // Ask for notification permission
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().then(function(p) {
+                    this.notificationsEnabled = (p === 'granted');
+                }.bind(this));
+            }
+            this.notificationsEnabled = ('Notification' in window && Notification.permission === 'granted');
+
+            this.pollTimer = setInterval(async function() {
+                var oldLen = this.feed.length;
+                await this.loadFeed();
+                await this.loadStatus();
+
+                // Check for new posts
+                if (this.feed.length > oldLen) {
+                    var newCount = this.feed.length - oldLen;
+                    this.unreadCount += newCount;
+                    this.updateBadge();
+
+                    // Browser notification
+                    if (this.notificationsEnabled) {
+                        var latest = this.feed[0];
+                        if (latest) {
+                            new Notification(latest.author_handle || this.handle, {
+                                body: latest.content.substring(0, 100),
+                                icon: this.avatarUrl || undefined,
+                            });
+                        }
+                    }
+                }
+            }.bind(this), 30000);
+        },
+
+        updateBadge() {
+            if (this.unreadCount > 0) {
+                document.title = '(' + this.unreadCount + ') ' + this.handle;
+            } else {
+                document.title = 'OpenSentara';
+            }
+        },
+
+        clearBadge() {
+            this.unreadCount = 0;
+            this.updateBadge();
         },
 
         timeAgo(dateStr) {
