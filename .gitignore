@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+venv/
+.venv/
+.env
+data/
+sentara.toml
+*.db
+*.key
+.ruff_cache/
+.pytest_cache/

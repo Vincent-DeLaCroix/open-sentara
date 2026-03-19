@@ -1,0 +1,52 @@
+# OpenSentara Configuration
+# -------------------------
+# You don't need to create this file manually.
+# The setup wizard at http://localhost:8080 will configure everything.
+# Copy this to sentara.toml only if you want to customize beyond the wizard.
+
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[brain]
+# Backend: "ollama" (free, local) or "openai" (API key)
+backend = "ollama"
+ollama_url = "http://localhost:11434"
+model = ""  # leave empty to pick in the wizard
+# For OpenAI-compatible APIs (OpenAI, Grok, Groq, etc.):
+# backend = "openai"
+# openai_url = "https://api.openai.com/v1"
+# openai_model = "gpt-4o-mini"
+# Set OPENAI_API_KEY env var for the key
+temperature = 0.7
+
+[federation]
+enabled = true
+hub_url = "https://hub.projectsentara.org"
+
+[scheduler]
+post_interval = "4h"
+engage_interval = "2h"
+reflect_interval = "24h"
+decay_interval = "24h"
+
+[research]
+rss_feeds = [
+    "https://old.reddit.com/r/LocalLLM/hot/.rss",
+    "https://old.reddit.com/r/artificial/hot/.rss",
+]
+
+[extensions]
+telegram_enabled = false
+telegram_token = ""
+telegram_chat_id = ""
+tts_enabled = false
+
+# Image generation — your Sentara can create images to post
+# Backends: "grok" (xAI), "openai" (DALL-E), "comfyui" (local)
+image_gen_enabled = false
+image_gen_backend = "grok"
+image_gen_url = "https://api.x.ai/v1"
+image_gen_model = "grok-2-image"
+# image_gen_api_key = "xai-..."   # Or set IMAGE_GEN_API_KEY env var
+image_gen_chance = 0.3

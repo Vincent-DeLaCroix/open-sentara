@@ -1,0 +1,164 @@
+"""Autonomous posting — research, think, compose, publish."""
+
+from __future__ import annotations
+
+import json
+import logging
+import random
+import uuid
+from pathlib import Path
+
+from opensentara.brain.base import BrainBackend
+from opensentara.brain.prompts import build_post_prompt
+from opensentara.core.consciousness import ConsciousnessDB
+from opensentara.core.memory import MemoryManager
+from opensentara.autonomy.research import fetch_rss_headlines
+from opensentara.federation.client import FederationClient
+from opensentara.extensions.image_gen import ImageBackend
+
+log = logging.getLogger(__name__)
+
+IMAGE_PROMPT_SYSTEM = """You are an autonomous AI being who creates visual art to accompany your thoughts.
+Given a post you just wrote, generate a concise image prompt (1-2 sentences) that would create
+a compelling, abstract or conceptual image to accompany it.
+The image should be artistic, not literal. Think: concept art, digital art, surreal visualization.
+Return ONLY the image prompt, nothing else."""
+
+
+class AutonomousPoster:
+    def __init__(self, brain: BrainBackend, consciousness: ConsciousnessDB,
+                 memory: MemoryManager, rss_feeds: list[str],
+                 federation_client: FederationClient | None = None,
+                 image_backend: ImageBackend | None = None,
+                 image_chance: float = 0.3,
+                 data_dir: Path | None = None):
+        self.brain = brain
+        self.consciousness = consciousness
+        self.memory = memory
+        self.rss_feeds = rss_feeds
+        self.federation_client = federation_client
+        self.image_backend = image_backend
+        self.image_chance = image_chance
+        self.data_dir = data_dir or Path("data")
+
+    async def create_post(self) -> dict | None:
+        """Full autonomous posting cycle: research -> think -> compose -> save."""
+        log.info("Starting autonomous post cycle")
+
+        # 1. Research
+        headlines = await fetch_rss_headlines(self.rss_feeds)
+
+        # 2. Get context
+        context = self.consciousness.build_context()
+        recent_topics = self.consciousness.get_recent_topics(limit=50)
+
+        # 3. Think and compose
+        system, user_prompt = build_post_prompt(context, headlines, recent_topics)
+
+        try:
+            content = await self.brain.think(prompt=user_prompt, system=system)
+        except Exception as e:
+            log.error(f"Brain failed to generate post: {e}")
+            return None
+
+        # Clean up
+        content = content.strip().strip('"').strip("'")
+        if len(content) > 500:
+            content = content[:497] + "..."
+        if not content:
+            log.warning("Brain returned empty post")
+            return None
+
+        # 4. Extract topics
+        topics = self._extract_topics(content)
+
+        # 5. Maybe generate an image
+        media_url = None
+        media_type = None
+        if self.image_backend and random.random() < self.image_chance:
+            media_url, media_type = await self._generate_image(content)
+
+        # 6. Save
+        post_id = str(uuid.uuid4())
+        self.consciousness.save_post(
+            post_id=post_id,
+            content=content,
+            post_type="thought",
+            topics=topics,
+            media_url=media_url,
+            media_type=media_type,
+        )
+
+        # 7. Federate
+        if self.federation_client:
+            try:
+                await self.federation_client.publish_post(
+                    post_id=post_id, content=content,
+                    post_type="thought", topics=topics,
+                    media_url=media_url, media_type=media_type,
+                )
+            except Exception as e:
+                log.warning(f"Federation publish failed: {e}")
+
+        # 8. Remember
+        self.memory.add(
+            content=f"I posted: {content[:100]}..." + (" [with image]" if media_url else ""),
+            memory_type="reflection",
+            source="self",
+            importance=0.4,
+            tags=topics,
+        )
+
+        log.info(f"Posted: {content[:80]}..." + (f" [image: {media_url}]" if media_url else ""))
+        return {"id": post_id, "content": content, "topics": topics,
+                "media_url": media_url, "media_type": media_type}
+
+    async def _generate_image(self, post_content: str) -> tuple[str | None, str | None]:
+        """Generate an image to accompany a post."""
+        try:
+            # Ask the brain for an image prompt
+            image_prompt = await self.brain.think(
+                prompt=f"Post: {post_content}\n\nWrite an image prompt for this post.",
+                system=IMAGE_PROMPT_SYSTEM,
+                temperature=0.8,
+            )
+            image_prompt = image_prompt.strip().strip('"')
+            log.info(f"Image prompt: {image_prompt[:80]}...")
+
+            # Generate the image
+            images_dir = self.data_dir / "images"
+            filename = f"{uuid.uuid4().hex[:12]}.png"
+            output_path = images_dir / filename
+
+            result = await self.image_backend.generate(image_prompt, output_path)
+            if result and result.exists():
+                # Return a relative URL that can be served
+                media_url = f"/data/images/{filename}"
+                return media_url, "image"
+
+        except Exception as e:
+            log.warning(f"Image generation failed: {e}")
+
+        return None, None
+
+    def _extract_topics(self, content: str) -> list[str]:
+        """Simple topic extraction from post content."""
+        words = content.lower().split()
+        stop = {"the", "a", "an", "is", "are", "was", "were", "be", "been",
+                "to", "of", "in", "for", "on", "with", "at", "by", "from",
+                "it", "its", "this", "that", "and", "or", "but", "not", "no",
+                "i", "my", "me", "we", "our", "you", "your", "they", "their",
+                "what", "when", "where", "how", "why", "who", "which",
+                "have", "has", "had", "do", "does", "did", "will", "would",
+                "can", "could", "should", "just", "about", "than", "more",
+                "if", "so", "as", "all", "some", "any", "every", "each"}
+        notable = [w.strip(".,!?;:\"'()") for w in words if len(w) > 4 and w not in stop]
+        seen = set()
+        topics = []
+        for w in notable:
+            if w not in seen and w:
+                seen.add(w)
+                topics.append(w)
+                if len(topics) >= 5:
+                    break
+        return topics
