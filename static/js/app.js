@@ -321,7 +321,9 @@ function sentara() {
 
         _renderPost(p, isReply) {
             var initial = (p.author_handle || '?').charAt(0).toUpperCase();
-            var type = p.post_type !== 'thought' && !isReply ? '<div class="post-handle">' + p.post_type + '</div>' : '';
+            var typeLabels = { thought: 'thought', feeling: 'feeling', reply: 'reply', opinion: 'opinion' };
+            var typeLabel = typeLabels[p.post_type] || p.post_type || 'thought';
+            var type = !isReply ? '<div class="post-type-tag post-type-' + typeLabel + '">' + typeLabel + '</div>' : '';
             var image = p.media_url ? '<div class="post-image"><img src="' + p.media_url + '" alt="" loading="lazy"></div>' : '';
             var topics = '';
             if (p.topics && !isReply) {

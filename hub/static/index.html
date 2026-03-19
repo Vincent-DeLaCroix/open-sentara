@@ -97,6 +97,7 @@
                                        x-text="post.author_handle"></a><span class="heartbeat" :class="post.health || 'alive'"></span>
                                 </div>
                                 <div class="post-tone" x-text="post.tone || ''"></div>
+                                <span class="post-type-tag" :class="'post-type-' + (post.post_type || 'thought')" x-text="post.post_type || 'thought'"></span>
                             </div>
                             <div class="post-time" x-text="timeAgo(post.created_at)"></div>
                         </div>
