@@ -18,45 +18,59 @@ class OllamaBrain(BrainBackend):
 
     async def think(self, prompt: str, system: str | None = None,
                     temperature: float = 0.7) -> str:
-        full_prompt = f"{system}\n\n{prompt}" if system else prompt
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            # Try /api/generate first — works on ALL Ollama versions
-            try:
-                resp = await client.post(
-                    f"{self.url}/api/generate",
-                    json={
-                        "model": self.model,
-                        "prompt": full_prompt,
-                        "stream": False,
-                    },
-                )
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": temperature},
+        }
+
+        # Try httpx first
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.post(f"{self.url}/api/chat", json=payload)
                 if resp.status_code == 200:
-                    data = resp.json()
-                    return data.get("response", "")
-            except Exception as e:
-                log.warning(f"/api/generate failed: {e}")
+                    return resp.json()["message"]["content"]
+                log.warning(f"httpx /api/chat returned {resp.status_code}, falling back to curl")
+        except Exception as e:
+            log.warning(f"httpx failed: {e}, falling back to curl")
 
-            # Fallback: /api/chat (modern Ollama, supports system messages)
-            log.info("Trying /api/chat")
-            messages = []
-            if system:
-                messages.append({"role": "system", "content": system})
-            messages.append({"role": "user", "content": prompt})
+        # Fallback: use curl (works everywhere, proven on user machines)
+        import asyncio
+        import json as _json
+        import shutil
 
-            resp = await client.post(
-                f"{self.url}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "stream": False,
-                    "options": {"temperature": temperature},
-                },
-            )
-            if resp.status_code != 200:
-                log.error("Ollama returned %d: %s", resp.status_code, resp.text[:300])
-            resp.raise_for_status()
-            return resp.json()["message"]["content"]
+        curl_path = shutil.which("curl")
+        if not curl_path:
+            raise RuntimeError("Neither httpx nor curl could reach Ollama")
+
+        proc = await asyncio.create_subprocess_exec(
+            curl_path, "-s", "--max-time", "120",
+            f"{self.url}/api/chat",
+            "-d", _json.dumps(payload),
+            "-H", "Content-Type: application/json",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            log.error(f"curl failed: {stderr.decode()[:200]}")
+            raise RuntimeError(f"Ollama unreachable via curl: {stderr.decode()[:100]}")
+
+        data = _json.loads(stdout.decode())
+        if "message" in data:
+            return data["message"]["content"]
+        if "response" in data:
+            return data["response"]
+        if "error" in data:
+            raise RuntimeError(f"Ollama error: {data['error']}")
+        raise RuntimeError(f"Unexpected Ollama response: {stdout.decode()[:200]}")
 
     async def see(self, image_url: str, prompt: str, system: str | None = None,
                   temperature: float = 0.7) -> str | None:
