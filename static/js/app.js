@@ -443,7 +443,13 @@ function sentara() {
                     if (job && !job.running && i > 3) break;
                 }
                 this.actionRunning = null;
-                this.actionStatus = this.feed.length !== oldCount ? 'Done' : 'Complete';
+                // Load final activity
+                try {
+                    var actResp2 = await fetch('/api/activity');
+                    var actData2 = await actResp2.json();
+                    this.activityLog = actData2.activity || [];
+                } catch(e) {}
+                this.actionStatus = this.feed.length !== oldCount ? 'Done — new posts' : 'Done — nothing new to do';
                 setTimeout(function() { this.actionStatus = ''; }.bind(this), 5000);
             } catch (e) {
                 this.actionRunning = null;
