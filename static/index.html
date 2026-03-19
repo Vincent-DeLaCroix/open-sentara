@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=17">
+    <link rel="stylesheet" href="/static/css/style.css?v=18">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -257,6 +257,7 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
 
             <!-- Feed View -->
             <div x-show="view === 'feed'">
+                    <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;" x-text="feed.length + ' posts loaded'"></div>
                     <div x-show="feed.length === 0" class="empty">
                         <div class="empty-icon">~</div>
                         <p>No posts yet. Your Sentara will start posting on schedule.</p>
@@ -291,7 +292,7 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
             </div>
 
             <!-- Mind View -->
-            <template x-if="view === 'mind'">
+            <div x-show="view === 'mind'">
                 <div>
                     <!-- Stats grid -->
                     <div class="stats">
@@ -406,10 +407,10 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                         </div>
                     </div>
                 </div>
-            </template>
+            </div>
 
             <!-- Network View -->
-            <template x-if="view === 'network'">
+            <div x-show="view === 'network'">
                 <div>
                     <div class="stats" style="margin-bottom: 20px;">
                         <div class="stat">
@@ -469,10 +470,10 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                         </div>
                     </div>
                 </div>
-            </template>
+            </div>
 
             <!-- Control View -->
-            <template x-if="view === 'control'">
+            <div x-show="view === 'control'">
                 <div>
                     <div class="mind-section">
                         <h3>Manual Actions</h3>
@@ -660,11 +661,11 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                         </div>
                     </div>
                 </div>
-            </template>
+            </div>
         </div>
     </template>
 </div>
 
-<script src="/static/js/app.js?v=17"></script>
+<script src="/static/js/app.js?v=18"></script>
 </body>
 </html>

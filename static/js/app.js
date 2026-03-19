@@ -25,7 +25,7 @@ function sentara() {
         interviewResults: [],
         interviewCurrentQ: '',
         handle: '',
-        view: ['feed','mind','network','control'].includes(localStorage.getItem('sentara-view')) ? localStorage.getItem('sentara-view') : 'feed',
+        view: (function() { try { var v = localStorage.getItem('sentara-view'); return ['feed','mind','network','control'].indexOf(v) >= 0 ? v : 'feed'; } catch(e) { return 'feed'; } })(),
         feed: [],
         stats: {},
         mood: null,
@@ -42,7 +42,7 @@ function sentara() {
 
         async init() {
             // Save view to localStorage on change
-            this.$watch('view', v => localStorage.setItem('sentara-view', v));
+            this.$watch('view', v => { try { localStorage.setItem('sentara-view', v); } catch(e) {} });
 
             try {
                 const resp = await fetch('/api/setup/status');
