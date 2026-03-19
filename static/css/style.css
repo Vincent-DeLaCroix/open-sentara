@@ -151,6 +151,19 @@ nav button.active {
     border-color: var(--accent);
     background: var(--accent-glow);
 }
+.nav-hub {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 12px;
+    text-decoration: none;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 4px;
+}
+.nav-hub:hover { color: var(--accent); border-color: var(--accent); }
+.nav-hub::after { content: "↗"; font-size: 10px; }
 
 /* ---- POSTS ---- */
 .post {
