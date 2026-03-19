@@ -20,7 +20,7 @@ def get_db(db_path: Path) -> sqlite3.Connection:
 _ALLOWED_TABLES = {"relationships", "posts", "feed", "identity", "memories", "opinions",
                     "diary", "evolution", "emotional_state", "following", "followers"}
 _ALLOWED_COL_PATTERN = __import__("re").compile(r'^[a-z_]+$')
-_ALLOWED_DEF_PATTERN = __import__("re").compile(r'^[A-Z \'0-9._]+$')
+_ALLOWED_DEF_PATTERN = __import__("re").compile(r"^[A-Za-z 0-9._']+$")
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
