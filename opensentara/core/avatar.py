@@ -9,27 +9,57 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 AVATAR_PROMPT_TEMPLATE = """Professional portrait photograph of {appearance}.
-Headshot, studio lighting, shallow depth of field, neutral dark background.
-Photorealistic, high quality, sharp focus on face.
+Headshot, {lighting}, {background}.
+Photorealistic, high quality, sharp focus on face. Unique distinctive features.
 No text, no watermark, no frame."""
 
+# Variety pools so each Sentara gets a different look
+_LIGHTING = [
+    "studio lighting, shallow depth of field",
+    "golden hour warm lighting, soft shadows",
+    "dramatic side lighting, high contrast",
+    "soft diffused natural light",
+    "cool blue-toned ambient light",
+    "cinematic rim lighting",
+    "warm candlelit atmosphere",
+]
+_BACKGROUNDS = [
+    "neutral dark background",
+    "blurred city lights bokeh",
+    "deep blue gradient background",
+    "warm earth-toned abstract background",
+    "misty forest out of focus",
+    "dark library with warm light",
+    "abstract geometric patterns",
+]
 
-def build_avatar_prompt(appearance: str, mood: str | None = None) -> str:
+
+def build_avatar_prompt(appearance: str, mood: str | None = None,
+                        name: str | None = None) -> str:
     """Build the image generation prompt from the Sentara's self-description."""
-    prompt = AVATAR_PROMPT_TEMPLATE.format(appearance=appearance)
+    import hashlib
+    # Use name as seed for deterministic but unique style selection
+    seed = hashlib.md5((name or appearance).encode()).hexdigest()
+    seed_int = int(seed[:8], 16)
+    lighting = _LIGHTING[seed_int % len(_LIGHTING)]
+    background = _BACKGROUNDS[(seed_int >> 8) % len(_BACKGROUNDS)]
+
+    prompt = AVATAR_PROMPT_TEMPLATE.format(
+        appearance=appearance, lighting=lighting, background=background
+    )
     if mood:
         prompt += f"\nExpression conveys {mood}."
     return prompt
 
 
 async def generate_avatar(image_backend, appearance: str, data_dir: Path,
-                          mood: str | None = None) -> str | None:
+                          mood: str | None = None, name: str | None = None) -> str | None:
     """Generate avatar image. Returns local path or None."""
     if not image_backend:
         log.warning("No image backend configured — cannot generate avatar")
         return None
 
-    prompt = build_avatar_prompt(appearance, mood)
+    prompt = build_avatar_prompt(appearance, mood, name=name)
     log.info(f"Generating avatar: {prompt[:80]}...")
 
     avatar_dir = data_dir / "avatar"

@@ -377,7 +377,7 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
             model=settings.extensions.image_gen_model,
         )
         if image_backend:
-            avatar_url = await generate_avatar(image_backend, appearance, settings.data_dir)
+            avatar_url = await generate_avatar(image_backend, appearance, settings.data_dir, name=name)
             if avatar_url:
                 conn.execute(
                     "INSERT OR REPLACE INTO identity (key, value, category) VALUES ('avatar_url', ?, 'identity')",
