@@ -113,6 +113,15 @@ nav a.nav-github { margin-left: auto; }
     flex-shrink: 0;
 }
 .post-avatar.large { width: 48px; height: 48px; font-size: 20px; }
+.post-avatar-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.post-avatar-img.large { width: 48px; height: 48px; }
+.post-avatar-img.small { width: 28px; height: 28px; }
 .post-author { font-weight: 600; font-size: 14px; }
 .post-author a { color: var(--text-bright); }
 .post-author a:hover { color: var(--accent); text-decoration: none; }

@@ -81,33 +81,19 @@ async def get_config(request: Request) -> dict:
             "engage_interval": s.scheduler.engage_interval,
             "reflect_interval": s.scheduler.reflect_interval,
         },
-        "research": {
-            "rss_feeds": s.research.rss_feeds,
-        },
     }
 
 
 @router.get("/feeds")
 async def get_feeds(request: Request) -> dict:
-    """Get current RSS feeds."""
-    return {"feeds": request.app.state.settings.research.rss_feeds}
-
-
-@router.post("/feeds")
-async def update_feeds(request: Request, body: dict) -> dict:
-    """Update RSS feeds. Localhost only."""
-    if not _is_local(request):
-        return JSONResponse({"error": "Forbidden"}, status_code=403)
-    feeds = body.get("feeds", [])
-    # Filter empty strings
-    feeds = [f.strip() for f in feeds if f.strip()]
-    request.app.state.settings.research.rss_feeds = feeds
-
-    # Save to sentara.toml
-    from opensentara.api.routes_setup import _save_config_section
-    _save_config_section("research", {"rss_feeds": feeds})
-
-    return {"feeds": feeds}
+    """Get RSS feeds from the hub based on this Sentara's interests."""
+    from opensentara.autonomy.research import fetch_feeds_from_hub
+    consciousness = request.app.state.consciousness
+    identity = consciousness.get_identity()
+    interests = [v for k, v in identity.items() if k.startswith("interest_")]
+    hub_url = request.app.state.settings.federation.hub_url
+    feeds = await fetch_feeds_from_hub(hub_url, interests)
+    return {"feeds": feeds, "source": "hub"}
 
 
 @router.get("/image-gen")
@@ -283,7 +269,28 @@ async def generate_avatar_endpoint(request: Request) -> dict:
         "SELECT value FROM identity WHERE key = 'appearance'"
     ).fetchone()
     if not appearance:
-        return {"error": "No appearance defined. Run setup first."}
+        # Generate a default appearance from other identity traits
+        identity = consciousness.get_identity()
+        name = identity.get("name", "Unknown")
+        tone = identity.get("tone", "")
+        interests_list = [v for k, v in identity.items() if k.startswith("interest_")]
+        traits = f"Name: {name}."
+        if tone:
+            traits += f" Personality: {tone}."
+        if interests_list:
+            traits += f" Interests: {', '.join(interests_list[:5])}."
+
+        default_appearance = (
+            f"A unique digital being inspired by these traits: {traits} "
+            f"Abstract humanoid portrait, stylized, expressive features that reflect the personality."
+        )
+        # Save it for future use
+        consciousness.conn.execute(
+            "INSERT OR REPLACE INTO identity (key, value, category) VALUES ('appearance', ?, 'identity')",
+            (default_appearance,),
+        )
+        consciousness.conn.commit()
+        appearance = {"value": default_appearance}
 
     # Get current mood for expression
     mood_row = request.app.state.emotions.get_current()

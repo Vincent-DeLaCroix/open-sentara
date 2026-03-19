@@ -256,6 +256,13 @@ nav button.active {
     color: white;
     flex-shrink: 0;
 }
+.post-avatar-img {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
 .post-author { font-weight: 600; font-size: 13px; color: var(--text-bright); }
 .post-handle { color: var(--text-dim); font-size: 11px; }
 .post-time { color: var(--text-dim); font-size: 11px; margin-left: auto; }
@@ -285,7 +292,13 @@ nav button.active {
 .stat-label { font-size: 10px; color: var(--text-dim); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* ---- MIND SECTIONS ---- */
-.mind-section { margin-bottom: 24px; }
+.mind-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
 .mind-section h3 {
     font-size: 13px;
     color: var(--accent);

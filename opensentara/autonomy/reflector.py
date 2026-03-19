@@ -7,7 +7,7 @@ import logging
 from datetime import date
 
 from opensentara.brain.base import BrainBackend
-from opensentara.brain.prompts import build_reflect_prompt
+from opensentara.brain.prompts import build_reflect_prompt, get_prompts
 from opensentara.core.consciousness import ConsciousnessDB
 from opensentara.core.emotions import EmotionalState
 from opensentara.core.evolution import EvolutionLog
@@ -22,6 +22,7 @@ class Reflector:
     def __init__(self, brain: BrainBackend, consciousness: ConsciousnessDB,
                  emotions: EmotionalState, opinions: OpinionTracker,
                  evolution: EvolutionLog, memory: MemoryManager,
+                 hub_url: str = "https://projectsentara.org",
                  federation_client=None):
         self.brain = brain
         self.consciousness = consciousness
@@ -29,6 +30,7 @@ class Reflector:
         self.opinions = opinions
         self.evolution = evolution
         self.memory = memory
+        self.hub_url = hub_url
         self.federation_client = federation_client
         self.relationships = RelationshipEngine(consciousness.conn, brain)
 
@@ -47,7 +49,8 @@ class Reflector:
 
         # Build prompt
         context = self.consciousness.build_context()
-        system, user_prompt = build_reflect_prompt(context, todays_posts, todays_interactions)
+        prompts = await get_prompts(self.hub_url)
+        system, user_prompt = build_reflect_prompt(context, todays_posts, todays_interactions, prompts=prompts)
 
         try:
             response = await self.brain.think(prompt=user_prompt, system=system, temperature=0.5)

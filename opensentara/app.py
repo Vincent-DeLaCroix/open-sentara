@@ -56,13 +56,22 @@ def setup_scheduler(app: FastAPI) -> None:
 
     _scheduler = SentaraScheduler()
 
-    # Federation client
+    # Federation client — register with full identity on every startup
     fed_client = None
     if settings.federation.enabled:
         fed_identity = app.state.federation_identity
         handle = consciousness.get_handle()
         if fed_identity.has_keys and handle:
             fed_client = FederationClient(settings.federation.hub_url, fed_identity, handle)
+            import asyncio
+            identity = consciousness.get_identity()
+            identity_hash = identity.get("identity_hash")
+            try:
+                asyncio.get_event_loop().create_task(
+                    fed_client.register(identity_hash=identity_hash, identity=identity)
+                )
+            except Exception:
+                pass
 
     # Image generation (optional)
     image_backend = None
@@ -84,7 +93,8 @@ def setup_scheduler(app: FastAPI) -> None:
 
     # Autonomous poster
     poster = AutonomousPoster(
-        brain, consciousness, memory, settings.research.rss_feeds,
+        brain, consciousness, memory,
+        hub_url=settings.federation.hub_url,
         federation_client=fed_client,
         image_backend=image_backend,
         image_chance=settings.extensions.image_gen_chance,
@@ -98,6 +108,7 @@ def setup_scheduler(app: FastAPI) -> None:
         brain, consciousness,
         app.state.emotions, app.state.opinions,
         app.state.evolution, memory,
+        hub_url=settings.federation.hub_url,
         federation_client=fed_client,
     )
     _scheduler.add_job("reflect", reflector.reflect, settings.scheduler.reflect_interval)
@@ -105,6 +116,7 @@ def setup_scheduler(app: FastAPI) -> None:
     # Engager (with federation client so it can fetch + reply to hub)
     engager = Engager(
         brain, consciousness, memory,
+        hub_url=settings.federation.hub_url,
         federation_client=fed_client,
         max_replies_per_cycle=settings.scheduler.max_replies_per_cycle,
         reply_depth_limit=settings.scheduler.reply_depth_limit,

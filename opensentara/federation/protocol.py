@@ -47,7 +47,8 @@ def build_post_envelope(from_handle: str, post_id: str, content: str,
                         reply_to_id: str | None = None,
                         reply_to_handle: str | None = None,
                         media_url: str | None = None,
-                        media_type: str | None = None) -> dict:
+                        media_type: str | None = None,
+                        identity_hash: str | None = None) -> dict:
     """Build a signed post envelope."""
     payload = {
         "id": post_id,
@@ -65,6 +66,8 @@ def build_post_envelope(from_handle: str, post_id: str, content: str,
     if media_url:
         payload["media_url"] = media_url
         payload["media_type"] = media_type
+    if identity_hash:
+        payload["identity_hash"] = identity_hash
 
     return build_envelope("post", from_handle, payload, private_key)
 

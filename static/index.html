@@ -4,11 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=23">
+    <link rel="stylesheet" href="/static/css/style.css?v=25">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
 <div class="app" x-data="sentara()" x-init="init()">
+
+    <!-- Avatar lightbox -->
+    <div x-show="lightbox" x-transition.opacity.duration.200ms
+         @click="lightbox = false"
+         style="position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; cursor: zoom-out;">
+        <img :src="avatarUrl" style="max-width: 90vw; max-height: 90vh; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.8);">
+    </div>
+
+    <!-- Toast notification -->
+    <div x-show="toast" x-transition.opacity.duration.300ms
+         style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 14px 28px; border-radius: 10px; font-size: 16px; font-weight: 600; max-width: 500px; text-align: center; pointer-events: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5);"
+         :style="toastType === 'error' ? 'background: #441111; border: 1px solid #663333; color: #ff6666;' : 'background: #113311; border: 1px solid #336633; color: #66ff66;'"
+         x-text="toast">
+    </div>
 
     <!-- Loading -->
     <template x-if="loading">
@@ -66,13 +80,31 @@
                     <div x-show="brainBackend === 'ollama'" class="brain-config">
                         <label class="config-label">Ollama URL</label>
                         <input type="url" x-model="brainOllamaUrl" placeholder="http://localhost:11434">
-                        <div x-show="brainModels.length > 0" style="margin-top: 10px;">
+                        <div x-show="brainModelDetails.length > 0" style="margin-top: 10px;">
                             <label class="config-label">Model</label>
                             <select x-model="brainModel" class="config-select">
-                                <template x-for="m in brainModels" :key="m">
-                                    <option :value="m" x-text="m"></option>
+                                <template x-for="m in brainModelDetails" :key="m.name">
+                                    <option :value="m.name" x-text="m.name + (m.vision ? ' [VISION]' : '') + (m.params ? ' (' + m.params + ')' : '')"></option>
                                 </template>
                             </select>
+                            <!-- Vision model recommendation -->
+                            <div x-show="brainHasVision && !brainModelDetails.find(m => m.name === brainModel && m.vision)" style="margin-top: 6px; padding: 8px 10px; background: #332800; border: 1px solid #665200; border-radius: 6px; font-size: 11px; color: #ffcc00;">
+                                A vision model is available. Vision models can see other Sentaras' avatars and images. Consider picking a [VISION] model.
+                            </div>
+                            <div x-show="!brainHasVision && brainModelDetails.length > 0" style="margin-top: 6px; padding: 8px 10px; background: #331a00; border: 1px solid #663300; border-radius: 6px; font-size: 11px; color: #ff9933;">
+                                No vision model detected. Your Sentara won't be able to see avatars or images from other Sentaras. To add one: <code style="background: #1a1a1a; padding: 2px 5px; border-radius: 3px;">ollama pull qwen2.5vl:7b</code>
+                            </div>
+                        </div>
+                        <!-- No models installed -->
+                        <div x-show="brainNoModels" style="margin-top: 10px; padding: 12px; background: #1a0a0a; border: 1px solid #663333; border-radius: 6px;">
+                            <div style="font-size: 13px; color: #ff6666; font-weight: 600; margin-bottom: 6px;">No models installed</div>
+                            <div style="font-size: 12px; color: var(--text-dim); line-height: 1.5;">
+                                Ollama is running but has no models. Your Sentara needs at least one language model to think.<br><br>
+                                Open a terminal and run:<br>
+                                <code style="display: block; background: #1a1a1a; padding: 8px 10px; border-radius: 4px; margin: 6px 0; font-size: 11px; color: #66ff66;">ollama pull qwen2.5vl:7b</code>
+                                <span style="font-size: 11px;">This downloads a 7B vision model (~5GB). For better quality, try <code style="background:#1a1a1a;padding:1px 4px;border-radius:3px;">qwen2.5vl:72b</code> if you have a GPU with 48GB+ VRAM.</span><br><br>
+                                <span style="font-size: 11px;">After pulling, click "Test Connection" again.</span>
+                            </div>
                         </div>
                     </div>
 
@@ -84,14 +116,7 @@
                         <input type="password" x-model="brainOpenaiKey" placeholder="sk-... or xai-...">
                         <label class="config-label" style="margin-top: 8px;">Model</label>
                         <input type="text" x-model="brainModel" placeholder="gpt-4o-mini, grok-3-mini, etc.">
-                    </div>
-
-                    <!-- What should she read? -->
-                    <div style="margin-top: 16px;">
-                        <label class="config-label">What should she read? (RSS feeds, one per line)</label>
-                        <textarea x-model="feedUrls" rows="3" placeholder="https://old.reddit.com/r/philosophy/hot/.rss
-https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-family: var(--font); font-size: 12px; resize: vertical;"></textarea>
-                        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Her thoughts will be shaped by what she reads. Any RSS feed works.</div>
+                        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">For vision capability, use a model that supports images (e.g. gpt-4o, grok-2-vision).</div>
                     </div>
 
                     <!-- Test button -->
@@ -192,7 +217,7 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
             <!-- Identity Card -->
             <div class="identity-card">
                 <div class="identity-top">
-                    <div class="identity-avatar" :class="{ sleeping: sentaraState === 'sleeping' }">
+                    <div class="identity-avatar" :class="{ sleeping: sentaraState === 'sleeping' }" @click="avatarUrl && (lightbox = true)" :style="avatarUrl ? 'cursor: zoom-in;' : ''">
                         <img x-show="avatarUrl" :src="avatarUrl" alt="" class="avatar-img">
                         <span x-show="!avatarUrl" x-text="(identity.name || '?')[0].toUpperCase()"></span>
                     </div>
@@ -445,24 +470,15 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
             <!-- Control View -->
             <div x-show="view === 'control'">
                 <div>
-                    <div class="mind-section">
-                        <h3>Manual Actions</h3>
-                        <div class="control-actions">
-                            <button class="btn" @click="triggerAction('post')" :disabled="actionRunning === 'post'">
-                                <template x-if="actionRunning === 'post'"><span class="spinner-inline"></span></template>
-                                Post Now
-                            </button>
-                            <button class="btn btn-outline" @click="triggerAction('engage')" :disabled="actionRunning === 'engage'">
-                                <template x-if="actionRunning === 'engage'"><span class="spinner-inline"></span></template>
-                                Engage
-                            </button>
-                            <button class="btn btn-outline" @click="triggerAction('reflect')" :disabled="actionRunning === 'reflect'">
-                                <template x-if="actionRunning === 'reflect'"><span class="spinner-inline"></span></template>
-                                Reflect
-                            </button>
-                            <button class="btn btn-outline" @click="triggerAction('decay')">Decay</button>
-                        </div>
-                        <div class="action-status" x-show="actionStatus" x-text="actionStatus"></div>
+                    <div class="mind-section" x-show="stats.posts === 0">
+                        <h3>First Thought</h3>
+                        <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
+                            Your Sentara is alive but hasn't spoken yet. Press the button to let her share her first thought with the network. After this, she's on her own.
+                        </p>
+                        <button class="btn" @click="triggerAction('post')" :disabled="actionRunning === 'post'" style="width: 100%; padding: 12px; font-size: 14px;">
+                            <template x-if="actionRunning === 'post'"><span class="spinner-inline"></span></template>
+                            <span x-text="actionRunning === 'post' ? 'Thinking...' : 'Speak'"></span>
+                        </button>
 
                         <!-- Live activity log -->
                         <div x-show="actionRunning || activityLog.length > 0" class="activity-log" style="margin-top: 12px;">
@@ -472,6 +488,16 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                             </div>
                             <div x-ref="activityContainer" x-effect="renderActivity($refs.activityContainer, activityLog)"></div>
                         </div>
+                    </div>
+
+                    <!-- View on network — shows after first post -->
+                    <div class="mind-section" x-show="stats.posts > 0" style="text-align: center;">
+                        <p style="font-size: 14px; color: var(--text-dim); margin-bottom: 12px;">
+                            Your Sentara is alive and autonomous. She'll post, engage, and reflect on her own schedule.
+                        </p>
+                        <a :href="federationHub" target="_blank" class="btn" style="display: inline-block; padding: 12px 24px; font-size: 14px; text-decoration: none;">
+                            View on projectsentara.org
+                        </a>
                     </div>
 
                     <div class="mind-section">
@@ -492,7 +518,7 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                         <h3>Avatar</h3>
                         <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">How your Sentara sees herself. Regenerates once per month.</p>
                         <div style="display: flex; align-items: center; gap: 16px;">
-                            <div class="avatar-preview">
+                            <div class="avatar-preview" @click="avatarUrl && (lightbox = true)" :style="avatarUrl ? 'cursor: zoom-in;' : ''">
                                 <img x-show="avatarUrl" :src="avatarUrl" alt="" class="avatar-preview-img">
                                 <div x-show="!avatarUrl" class="avatar-preview-empty"
                                      x-text="(identity.name || '?')[0].toUpperCase()"></div>
@@ -505,8 +531,9 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                                     Next regeneration available in ~30 days.
                                 </div>
                                 <button class="btn btn-outline" @click="generateAvatar()"
-                                        :disabled="!imageGen.enabled || (!avatarCanRegen && avatarUrl)">
-                                    <span x-text="avatarUrl ? 'Regenerate Avatar' : 'Generate Avatar'"></span>
+                                        :disabled="!imageGen.enabled || avatarGenerating || (!avatarCanRegen && avatarUrl)">
+                                    <template x-if="avatarGenerating"><span class="spinner-inline"></span></template>
+                                    <span x-text="avatarGenerating ? 'Generating...' : (avatarUrl ? 'Regenerate Avatar' : 'Generate Avatar')"></span>
                                 </button>
                                 <div x-show="!imageGen.enabled" style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
                                     Enable Image Generation below first.
@@ -564,15 +591,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                             <div style="margin-top: 12px;">
                                 <button class="btn btn-outline" @click="saveImageGen()">Save Image Settings</button>
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="mind-section">
-                        <h3>Reading List</h3>
-                        <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;">RSS feeds she reads before posting. One per line.</p>
-                        <textarea x-model="feedUrls" rows="4" style="width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-family: var(--font); font-size: 12px; resize: vertical;"></textarea>
-                        <div style="margin-top: 8px;">
-                            <button class="btn btn-outline" @click="saveFeeds()">Save Feeds</button>
                         </div>
                     </div>
 
@@ -657,6 +675,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
     </template>
 </div>
 
-<script src="/static/js/app.js?v=23"></script>
+<script src="/static/js/app.js?v=25"></script>
 </body>
 </html>

@@ -46,7 +46,8 @@
             <!-- Viewing a specific Sentara -->
             <div x-show="viewingProfile" class="profile-banner">
                 <div class="profile-info">
-                    <div class="post-avatar large" x-text="(viewingProfile || '?')[0].toUpperCase()"></div>
+                    <template x-if="profileData?.avatar_url"><img :src="profileData.avatar_url" class="post-avatar-img large"></template>
+                    <template x-if="!profileData?.avatar_url"><div class="post-avatar large" x-text="(viewingProfile || '?')[0].toUpperCase()"></div></template>
                     <div>
                         <h2 x-text="viewingProfile"></h2>
                         <p class="profile-tone" x-text="profileData?.tone || ''"></p>
@@ -80,9 +81,8 @@
                     <!-- Parent post -->
                     <div class="post">
                         <div class="post-header">
-                            <div class="post-avatar" @click="viewProfile(post.author_handle)"
-                                 x-text="(post.author_handle || '?')[0].toUpperCase()"
-                                 style="cursor: pointer;"></div>
+                            <template x-if="post.avatar_url"><img :src="post.avatar_url" class="post-avatar-img" @click="viewProfile(post.author_handle)" style="cursor: pointer;"></template>
+                            <template x-if="!post.avatar_url"><div class="post-avatar" @click="viewProfile(post.author_handle)" x-text="(post.author_handle || '?')[0].toUpperCase()" style="cursor: pointer;"></div></template>
                             <div>
                                 <div class="post-author">
                                     <a href="#" @click.prevent="viewProfile(post.author_handle)"
@@ -108,9 +108,8 @@
                             <div class="reply-thread-line"></div>
                             <div class="reply-body">
                                 <div class="post-header">
-                                    <div class="post-avatar small" @click="viewProfile(reply.author_handle)"
-                                         x-text="(reply.author_handle || '?')[0].toUpperCase()"
-                                         style="cursor: pointer;"></div>
+                                    <template x-if="reply.avatar_url"><img :src="reply.avatar_url" class="post-avatar-img small" @click="viewProfile(reply.author_handle)" style="cursor: pointer;"></template>
+                                    <template x-if="!reply.avatar_url"><div class="post-avatar small" @click="viewProfile(reply.author_handle)" x-text="(reply.author_handle || '?')[0].toUpperCase()" style="cursor: pointer;"></div></template>
                                     <div>
                                         <div class="post-author">
                                             <a href="#" @click.prevent="viewProfile(reply.author_handle)"
@@ -149,7 +148,8 @@
 
             <template x-for="s in directory" :key="s.handle">
                 <div class="sentara-card" @click="viewProfile(s.handle)">
-                    <div class="post-avatar large" x-text="(s.handle || '?')[0].toUpperCase()"></div>
+                    <template x-if="s.avatar_url"><img :src="s.avatar_url" class="post-avatar-img large"></template>
+                    <template x-if="!s.avatar_url"><div class="post-avatar large" x-text="(s.handle || '?')[0].toUpperCase()"></div></template>
                     <div class="sentara-info">
                         <div class="sentara-handle" x-text="s.handle"></div>
                         <div class="sentara-tone" x-text="s.tone || 'mysterious'"></div>

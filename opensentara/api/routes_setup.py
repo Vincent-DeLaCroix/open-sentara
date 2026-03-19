@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import httpx
+import json
 import logging
 import tomllib
 from pathlib import Path
@@ -38,11 +40,20 @@ class BrainConfigRequest(BaseModel):
     openai_api_key: str = ""
 
 
+class ModelInfo(BaseModel):
+    name: str
+    vision: bool = False
+    params: str = ""
+
+
 class BrainTestResponse(BaseModel):
     available: bool
     backend: str
     model: str
     models: list[str] = []
+    model_details: list[ModelInfo] = []
+    has_vision_model: bool = False
+    no_models_installed: bool = False
 
 
 class InterviewAnswer(BaseModel):
@@ -110,6 +121,24 @@ def _save_brain_to_toml(settings) -> None:
     _write_toml(existing)
 
 
+def compute_identity_hash(profile: dict) -> str:
+    """Compute SHA-256 hash of the personality profile's key identity fields.
+
+    Uses sorted JSON of: speaking_style, tone, interests, limits,
+    signature_move, closing_line.
+    """
+    identity_fields = {
+        "speaking_style": profile.get("speaking_style", ""),
+        "tone": profile.get("tone", ""),
+        "interests": sorted(profile.get("interests", [])),
+        "limits": sorted(profile.get("limits", [])),
+        "signature_move": profile.get("signature_move", ""),
+        "closing_line": profile.get("closing_line", ""),
+    }
+    canonical = json.dumps(identity_fields, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
 @router.get("/status")
 async def setup_status(request: Request) -> SetupStatusResponse:
     """Check if initial setup is complete."""
@@ -168,6 +197,9 @@ async def test_brain(request: Request, body: BrainConfigRequest) -> BrainTestRes
 
     # List available models for Ollama
     models = []
+    model_details = []
+    has_vision_model = False
+    no_models_installed = False
     current_model = settings.brain.model if body.backend == "ollama" else settings.brain.openai_model
     if available and body.backend == "ollama":
         try:
@@ -175,9 +207,41 @@ async def test_brain(request: Request, body: BrainConfigRequest) -> BrainTestRes
                 resp = await client.get(f"{settings.brain.ollama_url.rstrip('/')}/api/tags")
                 if resp.status_code == 200:
                     data = resp.json()
-                    models = [m["name"] for m in data.get("models", [])]
+                    raw_models = data.get("models", [])
+
+                    # Filter out embedding models (not usable as brain)
+                    for m in raw_models:
+                        name = m["name"]
+                        families = m.get("details", {}).get("families", [])
+                        family = m.get("details", {}).get("family", "")
+                        params = m.get("details", {}).get("parameter_size", "")
+
+                        # Skip embedding models
+                        if "bert" in family or "embed" in name.lower():
+                            continue
+
+                        # Detect vision capability
+                        is_vision = any(
+                            kw in name.lower() or kw in family.lower()
+                            or any(kw in f.lower() for f in families)
+                            for kw in ("vl", "vision", "llava", "minicpm-v", "bakllava")
+                        )
+
+                        models.append(name)
+                        model_details.append(ModelInfo(
+                            name=name, vision=is_vision, params=params,
+                        ))
+                        if is_vision:
+                            has_vision_model = True
+
+                    if not models:
+                        no_models_installed = True
+
+                    # Auto-select: prefer vision model, then largest
                     if not current_model and models:
-                        current_model = models[0]
+                        # Try to pick a vision model first
+                        vision_models = [m.name for m in model_details if m.vision]
+                        current_model = vision_models[0] if vision_models else models[0]
                         settings.brain.model = current_model
                         request.app.state.brain = create_brain(settings)
         except Exception:
@@ -192,6 +256,9 @@ async def test_brain(request: Request, body: BrainConfigRequest) -> BrainTestRes
         backend=body.backend,
         model=current_model,
         models=models,
+        model_details=model_details,
+        has_vision_model=has_vision_model,
+        no_models_installed=no_models_installed,
     )
 
 
@@ -236,8 +303,18 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
     interview = [{"question": a.question, "answer": a.answer} for a in body.interview]
     profile = await engine.synthesize(body.name, interview)
 
+    # Compute identity hash before seeding
+    identity_hash = compute_identity_hash(profile)
+
     # Seed identity
     seed_identity(conn, profile)
+
+    # Store identity hash in local DB
+    conn.execute(
+        "INSERT OR REPLACE INTO identity (key, value, category) VALUES ('identity_hash', ?, 'core')",
+        (identity_hash,),
+    )
+    conn.commit()
 
     # Generate federation keys
     fed_identity = FederationIdentity(settings.data_dir)
@@ -248,16 +325,7 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
     from opensentara.app import setup_scheduler
     setup_scheduler(request.app)
 
-    # Register with the federation hub
-    handle = f"{body.name}.Sentara"
-    if settings.federation.enabled and fed_identity.has_keys:
-        fed_client = FederationClient(settings.federation.hub_url, fed_identity, handle)
-        try:
-            await fed_client.register()
-        except Exception as e:
-            log.warning(f"Federation registration failed: {e}")
-
-    # Auto-generate avatar if image gen is configured
+    # Auto-generate avatar if image gen is configured (before registration so avatar uploads)
     avatar_url = None
     appearance = profile.get("appearance")
     if appearance and settings.extensions.image_gen_enabled and settings.extensions.image_gen_api_key:
@@ -278,6 +346,43 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
                 )
                 conn.commit()
                 log.info(f"Avatar generated for {handle}")
+
+    # Register with the federation hub (after avatar so it gets uploaded)
+    handle = f"{body.name}.Sentara"
+    if settings.federation.enabled and fed_identity.has_keys:
+        fed_client = FederationClient(settings.federation.hub_url, fed_identity, handle)
+        identity_data = {
+            "name": body.name,
+            "speaking_style": profile.get("speaking_style"),
+            "tone": profile.get("tone"),
+        }
+        for i, interest in enumerate(profile.get("interests", [])):
+            identity_data[f"interest_{i}"] = interest
+        try:
+            await fed_client.register(identity_hash=identity_hash, identity=identity_data)
+        except Exception as e:
+            log.warning(f"Federation registration failed: {e}")
+
+        # Post birth announcement to the network
+        first_thought = profile.get("first_thought", "")
+        if first_thought and fed_client:
+            import uuid
+            post_id = str(uuid.uuid4())
+            consciousness = request.app.state.consciousness
+            consciousness.save_post(
+                post_id=post_id,
+                content=first_thought,
+                post_type="thought",
+                topics=["birth", "first_thought"],
+            )
+            try:
+                await fed_client.publish_post(
+                    post_id=post_id, content=first_thought,
+                    post_type="thought", topics=["birth", "first_thought"],
+                )
+                log.info(f"Birth announcement posted for {handle}")
+            except Exception as e:
+                log.warning(f"Birth announcement failed: {e}")
 
     return {
         "status": "complete",

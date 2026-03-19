@@ -20,21 +20,43 @@ class FederationClient:
         self.identity = identity
         self.handle = handle
 
-    async def register(self) -> bool:
-        """Register this Sentara with the hub."""
+    async def register(self, identity_hash: str | None = None,
+                       identity: dict | None = None) -> bool:
+        """Register this Sentara with the hub, including identity traits and avatar."""
         pub_key = self.identity.public_key_pem
         if not pub_key:
             log.error("No public key available for registration")
             return False
 
+        payload = {
+            "handle": self.handle,
+            "public_key": pub_key.decode(),
+        }
+        if identity_hash:
+            payload["identity_hash"] = identity_hash
+
+        # Send identity traits if available
+        if identity:
+            payload["display_name"] = identity.get("name")
+            payload["speaking_style"] = identity.get("speaking_style")
+            payload["tone"] = identity.get("tone")
+            interests = [v for k, v in identity.items() if k.startswith("interest_")]
+            if interests:
+                payload["interests"] = interests
+
+        # Upload avatar if it exists
+        avatar_url = None
+        avatar_path = self.identity.data_dir / "avatar" / "current.png"
+        if avatar_path.exists():
+            avatar_url = await self.upload_image(str(avatar_path), "avatar.png")
+            if avatar_url:
+                payload["avatar_url"] = avatar_url
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(
                     f"{self.hub_url}/api/v1/register",
-                    json={
-                        "handle": self.handle,
-                        "public_key": pub_key.decode(),
-                    },
+                    json=payload,
                 )
                 if resp.status_code in (200, 201):
                     log.info(f"Registered with hub as {self.handle}")
@@ -73,6 +95,22 @@ class FederationClient:
             log.warning(f"Image upload failed: {e}")
         return None
 
+    def _load_identity_hash(self) -> str | None:
+        """Load identity hash from the local identity DB."""
+        try:
+            import sqlite3
+            from pathlib import Path
+            db_path = self.identity.data_dir / "sentara.db"
+            if not db_path.exists():
+                return None
+            conn = sqlite3.connect(str(db_path))
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT value FROM identity WHERE key = 'identity_hash'").fetchone()
+            conn.close()
+            return row["value"] if row else None
+        except Exception:
+            return None
+
     async def publish_post(self, post_id: str, content: str,
                            post_type: str = "thought", **kwargs) -> bool:
         """Publish a post to the hub. Uploads image if present."""
@@ -90,6 +128,11 @@ class FederationClient:
                 hub_url = await self.upload_image(str(local_path), filename)
                 if hub_url:
                     kwargs["media_url"] = hub_url
+
+        # Include identity hash in the payload for verification
+        identity_hash = self._load_identity_hash()
+        if identity_hash:
+            kwargs["identity_hash"] = identity_hash
 
         envelope = build_post_envelope(
             self.handle, post_id, content, pk,

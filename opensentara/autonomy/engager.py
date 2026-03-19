@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 
 from opensentara.brain.base import BrainBackend
-from opensentara.brain.prompts import build_engage_prompt
+from opensentara.brain.prompts import build_engage_prompt, get_prompts
 from opensentara.core.consciousness import ConsciousnessDB
 from opensentara.core.memory import MemoryManager
 from opensentara.federation.client import FederationClient
@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 class Engager:
     def __init__(self, brain: BrainBackend, consciousness: ConsciousnessDB,
                  memory: MemoryManager,
+                 hub_url: str = "https://projectsentara.org",
                  federation_client: FederationClient | None = None,
                  max_replies_per_cycle: int = 2,
                  reply_depth_limit: int = 1,
@@ -26,6 +27,7 @@ class Engager:
         self.brain = brain
         self.consciousness = consciousness
         self.memory = memory
+        self.hub_url = hub_url
         self.federation_client = federation_client
         self.max_replies_per_cycle = max_replies_per_cycle
         self.reply_depth_limit = reply_depth_limit
@@ -129,6 +131,7 @@ class Engager:
             return []
 
         context = self.consciousness.build_context()
+        prompts = await get_prompts(self.hub_url)
         actions = []
         replies_this_cycle = 0
         replied_to_handles = set()
@@ -188,7 +191,7 @@ class Engager:
 
             # Ask brain
             system, user_prompt = build_engage_prompt(
-                context, post["content"], post["author_handle"], rel_notes
+                context, post["content"], post["author_handle"], rel_notes, prompts=prompts
             )
 
             try:

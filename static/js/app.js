@@ -12,7 +12,11 @@ function sentara() {
         brainOpenaiKey: '',
         brainModel: '',
         brainModels: [],
-        feedUrls: '',
+        brainModelDetails: [],
+        brainHasVision: false,
+        brainNoModels: false,
+        avatarGenerating: false,
+        lightbox: false,
         sentaraState: 'awake',
         avatarUrl: null,
         avatarCanRegen: false,
@@ -39,6 +43,9 @@ function sentara() {
         actionRunning: null,
         actionStatus: '',
         activityLog: [],
+        toast: '',
+        toastType: 'success',
+        toastTimer: null,
         pollTimer: null,
         lastPostCount: 0,
         unreadCount: 0,
@@ -80,22 +87,10 @@ function sentara() {
                     if (cfg.ollama_url) this.brainOllamaUrl = cfg.ollama_url;
                     if (cfg.model) this.brainModel = cfg.model;
                     if (cfg.openai_url) this.brainOpenaiUrl = cfg.openai_url;
-                    // Load feeds
-                    const feedResp = await fetch('/api/feeds');
-                    const feedData = await feedResp.json();
-                    this.feedUrls = (feedData.feeds || []).join('\n');
                 } catch {}
                 await this.testBrain();
             } else if (this.setupStep === 2) {
-                // Save feeds
-                const feeds = this.feedUrls.split('\n').map(f => f.trim()).filter(f => f);
-                try {
-                    await fetch('/api/feeds', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ feeds }),
-                    });
-                } catch {}
+                // Feeds now come from the hub based on personality — skip to interview
                 this.setupStep = 3;
             }
         },
@@ -119,6 +114,9 @@ function sentara() {
                 this.brainStatus = data.available ? 'ok' : 'fail';
                 this.brainInfo = `${data.backend} / ${data.model}`;
                 this.brainModels = data.models || [];
+                this.brainModelDetails = data.model_details || [];
+                this.brainHasVision = data.has_vision_model || false;
+                this.brainNoModels = data.no_models_installed || false;
                 if (data.model && !this.brainModel) {
                     this.brainModel = data.model;
                 }
@@ -178,6 +176,8 @@ function sentara() {
                     this.setupStatus = '';
                     this.setupComplete = true;
                     this.handle = data.handle;
+                    this.view = 'control';
+                    this.showToast(data.handle + ' is alive!');
                     await Promise.all([
                         this.loadStatus(),
                         this.loadFeed(),
@@ -209,21 +209,22 @@ function sentara() {
         },
 
         async generateAvatar() {
-            this.actionStatus = 'Generating avatar...';
+            this.avatarGenerating = true;
+            this.showToast('Generating avatar... this may take a moment');
             try {
                 const resp = await fetch('/api/avatar/generate', { method: 'POST' });
                 const data = await resp.json();
                 if (data.url) {
                     this.avatarUrl = data.url + '?t=' + Date.now();
                     this.avatarCanRegen = false;
-                    this.actionStatus = 'Avatar generated';
+                    this.showToast('Avatar generated');
                 } else {
-                    this.actionStatus = data.error || 'Failed';
+                    this.showToast(data.error || 'Failed', 'error');
                 }
-                setTimeout(() => { this.actionStatus = ''; }, 3000);
             } catch {
-                this.actionStatus = 'Avatar generation failed';
+                this.showToast('Avatar generation failed', 'error');
             }
+            this.avatarGenerating = false;
         },
 
         async toggleConscience() {
@@ -265,9 +266,15 @@ function sentara() {
                 if (p.mood) meta += '<span class="meta-mood">' + p.mood + '</span>';
                 if (topics) meta += '<span class="meta-topics">' + topics + '</span>';
 
+                var avatarHtml = (p.source === 'local' && this.avatarUrl)
+                    ? '<img src="' + this.avatarUrl + '" class="post-avatar-img">'
+                    : (p.avatar_url
+                        ? '<img src="' + p.avatar_url + '" class="post-avatar-img">'
+                        : '<div class="post-avatar">' + initial + '</div>');
+
                 html += '<div class="post' + (p.source === 'local' ? ' own' : '') + (p.post_type === 'reply' ? ' reply' : '') + '">'
                     + '<div class="post-header">'
-                    + '<div class="post-avatar">' + initial + '</div>'
+                    + avatarHtml
                     + '<div><div class="post-author">' + (p.author_handle || 'Unknown') + '</div>' + type + '</div>'
                     + '<div class="post-time">' + this.timeAgo(p.created_at) + '</div>'
                     + '</div>'
@@ -335,14 +342,12 @@ function sentara() {
         },
 
         async saveSecrets() {
-            this.actionStatus = 'Saving keys...';
             const body = {};
             for (const [k, v] of Object.entries(this.secretInputs)) {
                 if (v) body[k] = v;
             }
             if (Object.keys(body).length === 0) {
-                this.actionStatus = 'No keys to save';
-                setTimeout(() => { this.actionStatus = ''; }, 3000);
+                this.showToast('No keys to save', 'error');
                 return;
             }
             try {
@@ -357,15 +362,13 @@ function sentara() {
                 this.secrets = await secResp.json();
                 const imgResp = await fetch('/api/image-gen');
                 this.imageGen = await imgResp.json();
-                this.actionStatus = 'Keys saved to .env';
-                setTimeout(() => { this.actionStatus = ''; }, 3000);
+                this.showToast('Keys saved to .env');
             } catch {
-                this.actionStatus = 'Failed to save keys';
+                this.showToast('Failed to save keys', 'error');
             }
         },
 
         async saveImageGen() {
-            this.actionStatus = 'Saving image settings...';
             try {
                 const body = {
                     enabled: this.imageGen.enabled,
@@ -380,28 +383,25 @@ function sentara() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body),
                 });
-                this.actionStatus = 'Image gen saved';
+                this.showToast('Image gen saved');
                 this.imageGen.has_key = this.imageGen.has_key || !!this.imageGenKey;
                 this.imageGenKey = '';
-                setTimeout(() => { this.actionStatus = ''; }, 3000);
             } catch {
-                this.actionStatus = 'Failed to save';
+                this.showToast('Failed to save', 'error');
             }
         },
 
         async saveFeeds() {
             const feeds = this.feedUrls.split('\n').map(f => f.trim()).filter(f => f);
-            this.actionStatus = 'Saving feeds...';
             try {
                 await fetch('/api/feeds', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ feeds }),
                 });
-                this.actionStatus = 'Feeds saved';
-                setTimeout(() => { this.actionStatus = ''; }, 3000);
+                this.showToast('Feeds saved');
             } catch {
-                this.actionStatus = 'Failed to save feeds';
+                this.showToast('Failed to save feeds', 'error');
             }
         },
 
@@ -452,11 +452,10 @@ function sentara() {
                     var actData2 = await actResp2.json();
                     this.activityLog = actData2.activity || [];
                 } catch(e) {}
-                this.actionStatus = this.feed.length !== oldCount ? 'Done — new posts' : 'Done — nothing new to do';
-                setTimeout(function() { this.actionStatus = ''; }.bind(this), 5000);
+                this.showToast(this.feed.length !== oldCount ? 'Done - new posts' : 'Done - nothing new to do');
             } catch (e) {
                 this.actionRunning = null;
-                this.actionStatus = action + ' failed';
+                this.showToast(action + ' failed', 'error');
             }
         },
 
@@ -506,6 +505,13 @@ function sentara() {
         clearBadge() {
             this.unreadCount = 0;
             this.updateBadge();
+        },
+
+        showToast(message, type = 'success') {
+            this.toast = message;
+            this.toastType = type;
+            clearTimeout(this.toastTimer);
+            this.toastTimer = setTimeout(() => { this.toast = ''; }, 3000);
         },
 
         timeAgo(dateStr) {

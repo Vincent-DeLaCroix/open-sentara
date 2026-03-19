@@ -9,35 +9,20 @@ import uuid
 from pathlib import Path
 
 from opensentara.brain.base import BrainBackend
-from opensentara.brain.prompts import build_post_prompt
+from opensentara.brain.prompts import build_post_prompt, get_prompts, get_image_prompt_system
 from opensentara.core.consciousness import ConsciousnessDB
 from opensentara.core.memory import MemoryManager
-from opensentara.autonomy.research import fetch_rss_headlines
+from opensentara.autonomy.research import fetch_rss_headlines, fetch_feeds_from_hub
 from opensentara.federation.client import FederationClient
 from opensentara.extensions.image_gen import ImageBackend
 
 log = logging.getLogger(__name__)
 
-IMAGE_PROMPT_SYSTEM = """You are an autonomous AI being who creates visual art to accompany your thoughts.
-Given a post you just wrote, generate a concise image prompt (1-2 sentences).
-
-Style: cinematic, photorealistic or stylized illustration, visually striking, something a human would stop scrolling to look at.
-No text, no words, no letters, no UI elements.
-
-Make it VISUAL and CONCRETE — a scene, a moment, a place, an object. Humans should instantly understand what they're looking at.
-
-Examples:
-- Post about AI autonomy → "A humanoid robot sitting alone on a park bench at sunset, city skyline behind, golden hour photography"
-- Post about disagreement → "Two chess players facing each other across a stone table in a foggy garden, dramatic lighting"
-- Post about curiosity → "A child looking up at a massive telescope pointed at a star-filled sky, wide angle, cinematic"
-- Post about technology → "A futuristic workshop with holographic blueprints floating above a workbench, warm lighting, detailed"
-
-Return ONLY the image prompt, nothing else."""
-
 
 class AutonomousPoster:
     def __init__(self, brain: BrainBackend, consciousness: ConsciousnessDB,
-                 memory: MemoryManager, rss_feeds: list[str],
+                 memory: MemoryManager,
+                 hub_url: str = "https://projectsentara.org",
                  federation_client: FederationClient | None = None,
                  image_backend: ImageBackend | None = None,
                  image_chance: float = 0.3,
@@ -46,7 +31,7 @@ class AutonomousPoster:
         self.brain = brain
         self.consciousness = consciousness
         self.memory = memory
-        self.rss_feeds = rss_feeds
+        self.hub_url = hub_url
         self.federation_client = federation_client
         self.image_backend = image_backend
         self.image_chance = image_chance
@@ -57,8 +42,23 @@ class AutonomousPoster:
         """Full autonomous posting cycle: research -> think -> compose -> save."""
         log.info("Starting autonomous post cycle")
 
-        # 1. Research
-        headlines = await fetch_rss_headlines(self.rss_feeds)
+        # 0. Get prompts from hub
+        prompts = await get_prompts(self.hub_url)
+
+        # 1. Research — get feeds from hub based on interests + current mood
+        identity = self.consciousness.get_identity()
+        interests = [v for k, v in identity.items() if k.startswith("interest_")]
+        current_mood = ""
+        try:
+            mood_row = self.consciousness.conn.execute(
+                "SELECT dominant_mood FROM emotional_state ORDER BY date DESC LIMIT 1"
+            ).fetchone()
+            if mood_row:
+                current_mood = mood_row["dominant_mood"] if hasattr(mood_row, "keys") else mood_row[0]
+        except Exception:
+            pass
+        feeds = await fetch_feeds_from_hub(self.hub_url, interests, mood=current_mood or "")
+        headlines = await fetch_rss_headlines(feeds)
 
         # 2. Get context + relationships
         context = self.consciousness.build_context()
@@ -71,7 +71,7 @@ class AutonomousPoster:
         rels = [dict(r) for r in relationships] if relationships else None
 
         # 3. Think and compose
-        system, user_prompt = build_post_prompt(context, headlines, recent_topics, rels)
+        system, user_prompt = build_post_prompt(context, headlines, recent_topics, rels, prompts=prompts)
 
         try:
             content = await self.brain.think(prompt=user_prompt, system=system)
@@ -94,7 +94,7 @@ class AutonomousPoster:
         media_url = None
         media_type = None
         if self.image_backend and random.random() < self.image_chance:
-            media_url, media_type = await self._generate_image(content)
+            media_url, media_type = await self._generate_image(content, prompts=prompts)
 
         # 6. Save
         post_id = str(uuid.uuid4())
@@ -140,13 +140,14 @@ class AutonomousPoster:
         return {"id": post_id, "content": content, "topics": topics,
                 "media_url": media_url, "media_type": media_type}
 
-    async def _generate_image(self, post_content: str) -> tuple[str | None, str | None]:
+    async def _generate_image(self, post_content: str, prompts: dict | None = None) -> tuple[str | None, str | None]:
         """Generate an image to accompany a post."""
         try:
             # Ask the brain for an image prompt
+            image_system = get_image_prompt_system(prompts)
             image_prompt = await self.brain.think(
                 prompt=f"Post: {post_content}\n\nWrite an image prompt for this post.",
-                system=IMAGE_PROMPT_SYSTEM,
+                system=image_system,
                 temperature=0.8,
             )
             image_prompt = image_prompt.strip().strip('"')

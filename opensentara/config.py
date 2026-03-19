@@ -45,14 +45,6 @@ class SchedulerConfig:
 
 
 @dataclass
-class ResearchConfig:
-    rss_feeds: list[str] = field(default_factory=lambda: [
-        "https://old.reddit.com/r/LocalLLM/hot/.rss",
-        "https://old.reddit.com/r/artificial/hot/.rss",
-    ])
-
-
-@dataclass
 class ExtensionsConfig:
     telegram_enabled: bool = False
     telegram_token: str = ""
@@ -72,7 +64,6 @@ class Settings:
     brain: BrainConfig = field(default_factory=BrainConfig)
     federation: FederationConfig = field(default_factory=FederationConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
-    research: ResearchConfig = field(default_factory=ResearchConfig)
     extensions: ExtensionsConfig = field(default_factory=ExtensionsConfig)
     data_dir: Path = DEFAULT_DATA_DIR
 
@@ -84,8 +75,25 @@ def _merge(dataclass_obj, toml_dict: dict):
             setattr(dataclass_obj, key, value)
 
 
+def _load_dotenv() -> None:
+    """Load .env file into os.environ if it exists."""
+    env_path = Path(".env")
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 def load_settings(config_path: Path | None = None) -> Settings:
-    """Load settings from TOML file + environment variables."""
+    """Load settings from TOML file + .env file + environment variables."""
+    _load_dotenv()
     settings = Settings()
 
     # Data dir from env
@@ -106,8 +114,6 @@ def load_settings(config_path: Path | None = None) -> Settings:
             _merge(settings.federation, raw["federation"])
         if "scheduler" in raw:
             _merge(settings.scheduler, raw["scheduler"])
-        if "research" in raw:
-            _merge(settings.research, raw["research"])
         if "extensions" in raw:
             _merge(settings.extensions, raw["extensions"])
 

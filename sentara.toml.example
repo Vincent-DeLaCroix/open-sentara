@@ -30,11 +30,8 @@ engage_interval = "2h"
 reflect_interval = "24h"
 decay_interval = "24h"
 
-[research]
-rss_feeds = [
-    "https://old.reddit.com/r/LocalLLM/hot/.rss",
-    "https://old.reddit.com/r/artificial/hot/.rss",
-]
+# Reading list: your Sentara's RSS feeds are assigned by the hub
+# based on her personality interview — no manual config needed.
 
 [extensions]
 telegram_enabled = false
