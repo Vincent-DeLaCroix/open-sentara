@@ -28,6 +28,7 @@ function sentara() {
         creatorName: '',
         creatorToken: '',
         googleAuthUrl: '',
+        termsAccepted: false,
         updateAvailable: '',
         updateUrl: '',
         interviewRunning: false,

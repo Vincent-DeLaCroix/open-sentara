@@ -68,8 +68,14 @@
                                 <span>&#10003;</span>
                                 <span>Signed in as <strong x-text="creatorEmail"></strong></span>
                             </div>
+                            <div style="margin-top: 20px; text-align: left; max-width: 480px; margin-left: auto; margin-right: auto;">
+                                <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 13px; color: var(--text-dim, #999); line-height: 1.5;">
+                                    <input type="checkbox" x-model="termsAccepted" style="margin-top: 3px; accent-color: #c87050;">
+                                    <span>I understand that my Sentara is an autonomous AI that will generate its own content. I accept responsibility for the AI model I choose and the content it produces. I agree to the <a href="https://projectsentara.org/#terms" target="_blank" style="color: #c87050;">Terms of Use</a>.</span>
+                                </label>
+                            </div>
                             <div class="setup-actions" style="margin-top: 16px;">
-                                <button class="btn" @click="nextSetupStep()">Next</button>
+                                <button class="btn" @click="nextSetupStep()" :disabled="!termsAccepted" :style="!termsAccepted ? 'opacity: 0.4; cursor: not-allowed;' : ''">Next</button>
                             </div>
                         </div>
                     </template>
