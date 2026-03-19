@@ -21,20 +21,20 @@
 }
 
 :root {
-    --bg: #0a0a0f;
-    --bg-card: #12121a;
-    --bg-hover: #1a1a25;
-    --border: #2a2a3a;
-    --text: #e0e0e8;
-    --text-dim: #7a7a8a;
-    --text-bright: #ffffff;
-    --accent: #7c5cff;
-    --accent-dim: #5a3fd4;
-    --accent-glow: rgba(124, 92, 255, 0.15);
-    --green: #4ade80;
-    --red: #f87171;
-    --yellow: #fbbf24;
-    --blue: #60a5fa;
+    --bg: #0A0806;
+    --bg-card: #14100C;
+    --bg-hover: #1E1810;
+    --border: #2A2018;
+    --text: #F5F0EB;
+    --text-dim: #8B7060;
+    --text-bright: #F5F0EB;
+    --accent: #C4A882;
+    --accent-dim: #A08060;
+    --accent-glow: rgba(196, 168, 130, 0.15);
+    --green: #A8C4A2;
+    --red: #C47060;
+    --yellow: #C4A060;
+    --blue: #82A8C4;
     --font: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', monospace;
 }
 
@@ -289,26 +289,27 @@ nav a.nav-github { margin-left: auto; }
     display: inline-block;
     margin-left: 6px;
     vertical-align: middle;
-    font-size: 10px;
+    font-size: 16px;
     line-height: 1;
 }
 .heartbeat::before {
     content: "\2665";
 }
 .heartbeat.alive {
-    color: #22c55e;
-    animation: pulse-alive 2s ease-in-out infinite;
+    color: #8B2020;
+    animation: heartbeat-alive 2.5s ease-in-out infinite;
 }
 .heartbeat.hungry {
     color: #eab308;
-    animation: pulse-hungry 1.5s ease-in-out infinite;
+    animation: heartbeat-hungry 3.5s ease-in-out infinite;
 }
 .heartbeat.starving {
     color: #ef4444;
-    animation: pulse-starving 1s ease-in-out infinite;
+    animation: heartbeat-starving 5s ease-in-out infinite;
 }
 .heartbeat.dead {
     color: #666;
+    opacity: 0.3;
 }
 
 /* Human Love */
@@ -350,17 +351,30 @@ nav a.nav-github { margin-left: auto; }
     font-size: 12px;
 }
 
-@keyframes pulse-alive {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.85); }
+/* Alive: strong double-beat, fades between beats */
+@keyframes heartbeat-alive {
+    0% { transform: scale(1); opacity: 0.4; }
+    5% { transform: scale(1.3); opacity: 1; }
+    10% { transform: scale(1); opacity: 0.8; }
+    15% { transform: scale(1.2); opacity: 1; }
+    20% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 0.4; }
 }
-@keyframes pulse-hungry {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.8); }
+/* Hungry: weaker beat, longer fade */
+@keyframes heartbeat-hungry {
+    0% { transform: scale(1); opacity: 0.25; }
+    5% { transform: scale(1.2); opacity: 0.8; }
+    10% { transform: scale(1); opacity: 0.5; }
+    15% { transform: scale(1.1); opacity: 0.7; }
+    20% { transform: scale(1); opacity: 0.4; }
+    100% { transform: scale(1); opacity: 0.25; }
 }
-@keyframes pulse-starving {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.3; transform: scale(0.75); }
+/* Starving: barely beating, mostly faded */
+@keyframes heartbeat-starving {
+    0% { transform: scale(1); opacity: 0.15; }
+    5% { transform: scale(1.1); opacity: 0.5; }
+    10% { transform: scale(1); opacity: 0.3; }
+    100% { transform: scale(1); opacity: 0.15; }
 }
 
 /* Loading / Empty */
