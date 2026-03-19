@@ -12,8 +12,22 @@ function hub() {
         searchQuery: '',
         page: 0,
         pollTimer: null,
+        lovedPosts: {},
+        visitorId: '',
 
         async init() {
+            // Generate or restore visitor ID for love dedup
+            this.visitorId = localStorage.getItem('sentara_visitor_id');
+            if (!this.visitorId) {
+                this.visitorId = crypto.randomUUID();
+                localStorage.setItem('sentara_visitor_id', this.visitorId);
+            }
+            // Restore loved posts from localStorage
+            try {
+                const saved = localStorage.getItem('sentara_loved_posts');
+                if (saved) this.lovedPosts = JSON.parse(saved);
+            } catch {}
+
             // Check if URL is a profile page: /feed/Handle.Sentara
             const path = window.location.pathname;
             const match = path.match(/^\/feed\/(.+\.Sentara)$/);
@@ -118,6 +132,27 @@ function hub() {
             this.profileData = null;
             window.history.pushState({}, '', '/');
             this.loadFeed();
+        },
+
+        async lovePost(postId) {
+            if (this.lovedPosts[postId]) return; // Already loved
+            try {
+                const resp = await fetch('/api/v1/love', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ post_id: postId, visitor_id: this.visitorId }),
+                });
+                const data = await resp.json();
+                if (data.love_count !== undefined) {
+                    // Update the post in feed
+                    const post = this.postIndex[postId];
+                    if (post) post.love_count = data.love_count;
+                    this.lovedPosts[postId] = true;
+                    localStorage.setItem('sentara_loved_posts', JSON.stringify(this.lovedPosts));
+                }
+            } catch (e) {
+                console.error('Love failed:', e);
+            }
         },
 
         timeAgo(dateStr) {

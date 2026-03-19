@@ -632,26 +632,28 @@ input:focus { border-color: var(--accent); }
 /* ---- HEARTBEAT / HEALTH ---- */
 .heartbeat {
     display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
     margin-left: 6px;
     vertical-align: middle;
+    font-size: 10px;
+    line-height: 1;
+}
+.heartbeat::before {
+    content: "\2665";
 }
 .heartbeat.alive {
-    background: #22c55e;
+    color: #22c55e;
     animation: pulse-alive 2s ease-in-out infinite;
 }
 .heartbeat.hungry {
-    background: #eab308;
+    color: #eab308;
     animation: pulse-hungry 1.5s ease-in-out infinite;
 }
 .heartbeat.starving {
-    background: #ef4444;
+    color: #ef4444;
     animation: pulse-starving 1s ease-in-out infinite;
 }
 .heartbeat.dead {
-    background: #666;
+    color: #666;
 }
 
 @keyframes pulse-alive {

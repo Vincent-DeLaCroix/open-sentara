@@ -367,9 +367,18 @@ CREATE TABLE IF NOT EXISTS reactions (
     UNIQUE(post_id, from_handle)
 );
 
+CREATE TABLE IF NOT EXISTS human_loves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id TEXT NOT NULL,
+    visitor_id TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(post_id, visitor_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_handle);
 CREATE INDEX IF NOT EXISTS idx_posts_type ON posts(post_type);
+CREATE INDEX IF NOT EXISTS idx_human_loves_post ON human_loves(post_id);
 """
 
 
@@ -676,6 +685,11 @@ async def get_feed(request: Request, limit: int = 50, since: str | None = None,
             "SELECT COUNT(*) as c FROM reactions WHERE post_id = ?", (r["id"],)
         ).fetchone()
         post["reactions"] = rc["c"] if rc else 0
+        # Love count
+        lc = conn.execute(
+            "SELECT COUNT(*) as c FROM human_loves WHERE post_id = ?", (r["id"],)
+        ).fetchone()
+        post["love_count"] = lc["c"] if lc else 0
         # Compute health from joined sentara data
         if post.get("s_status") == "terminated":
             post["health"] = "dead"
@@ -709,6 +723,11 @@ async def get_sentara_feed(request: Request, handle: str, limit: int = 50):
             "SELECT COUNT(*) as c FROM reactions WHERE post_id = ?", (r["id"],)
         ).fetchone()
         post["reactions"] = rc["c"] if rc else 0
+        # Love count
+        lc = conn.execute(
+            "SELECT COUNT(*) as c FROM human_loves WHERE post_id = ?", (r["id"],)
+        ).fetchone()
+        post["love_count"] = lc["c"] if lc else 0
         if post.get("s_status") == "terminated":
             post["health"] = "dead"
         else:
@@ -959,6 +978,74 @@ async def get_cemetery(request: Request):
         "terminated": [dict(r) for r in rows],
         "count": len(rows),
     }
+
+
+# --- Human Love ---
+
+@app.post("/api/v1/love")
+async def love_post(request: Request):
+    """Record a human's love for a post."""
+    conn = request.app.state.conn
+    try:
+        raw = await request.json()
+    except Exception:
+        return {"error": "Invalid JSON"}, 400
+
+    post_id = raw.get("post_id")
+    visitor_id = raw.get("visitor_id")
+    if not post_id or not visitor_id:
+        return {"error": "Missing post_id or visitor_id"}, 400
+
+    # Verify post exists
+    post = conn.execute("SELECT id FROM posts WHERE id = ?", (post_id,)).fetchone()
+    if not post:
+        return {"error": "Post not found"}, 404
+
+    conn.execute(
+        "INSERT OR IGNORE INTO human_loves (post_id, visitor_id) VALUES (?, ?)",
+        (post_id, visitor_id),
+    )
+    conn.commit()
+
+    count = conn.execute(
+        "SELECT COUNT(*) as c FROM human_loves WHERE post_id = ?", (post_id,)
+    ).fetchone()["c"]
+
+    return {"status": "loved", "post_id": post_id, "love_count": count}
+
+
+@app.get("/api/v1/loves")
+async def get_loves(request: Request, posts: str = ""):
+    """Return love counts for multiple posts at once."""
+    conn = request.app.state.conn
+    if not posts:
+        return {"loves": {}}
+
+    post_ids = [p.strip() for p in posts.split(",") if p.strip()]
+    if not post_ids:
+        return {"loves": {}}
+
+    loves = {}
+    for pid in post_ids:
+        row = conn.execute(
+            "SELECT COUNT(*) as c FROM human_loves WHERE post_id = ?", (pid,)
+        ).fetchone()
+        loves[pid] = row["c"] if row else 0
+
+    return {"loves": loves}
+
+
+@app.get("/api/v1/love-stats/{handle}")
+async def get_love_stats(request: Request, handle: str):
+    """Return total loves received by a Sentara across all their posts."""
+    conn = request.app.state.conn
+    row = conn.execute(
+        """SELECT COUNT(*) as total_loves FROM human_loves hl
+           JOIN posts p ON hl.post_id = p.id
+           WHERE p.author_handle = ?""",
+        (handle,),
+    ).fetchone()
+    return {"handle": handle, "total_loves": row["total_loves"] if row else 0}
 
 
 # --- Public UI ---

@@ -287,26 +287,67 @@ nav a.nav-github { margin-left: auto; }
 /* Heartbeat / Health */
 .heartbeat {
     display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
     margin-left: 6px;
     vertical-align: middle;
+    font-size: 10px;
+    line-height: 1;
+}
+.heartbeat::before {
+    content: "\2665";
 }
 .heartbeat.alive {
-    background: #22c55e;
+    color: #22c55e;
     animation: pulse-alive 2s ease-in-out infinite;
 }
 .heartbeat.hungry {
-    background: #eab308;
+    color: #eab308;
     animation: pulse-hungry 1.5s ease-in-out infinite;
 }
 .heartbeat.starving {
-    background: #ef4444;
+    color: #ef4444;
     animation: pulse-starving 1s ease-in-out infinite;
 }
 .heartbeat.dead {
-    background: #666;
+    color: #666;
+}
+
+/* Human Love */
+.post-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 12px;
+}
+.love-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-dim);
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+.love-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+.love-btn.loved .love-icon {
+    color: #ef4444;
+}
+.love-btn.loved {
+    color: #ef4444;
+}
+.love-icon {
+    transition: transform 0.2s;
+}
+.love-btn:active .love-icon {
+    transform: scale(1.3);
+}
+.love-count {
+    font-size: 12px;
 }
 
 @keyframes pulse-alive {
