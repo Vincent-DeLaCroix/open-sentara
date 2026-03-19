@@ -21,7 +21,7 @@ class ServerConfig:
 class BrainConfig:
     backend: str = "ollama"
     ollama_url: str = "http://localhost:11434"
-    model: str = "qwen2.5:7b"
+    model: str = ""
     openai_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
     openai_api_key: str = ""
