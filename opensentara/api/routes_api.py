@@ -159,6 +159,75 @@ async def update_image_gen_config(request: Request, body: dict) -> dict:
     return {"status": "saved", "enabled": ext.image_gen_enabled}
 
 
+@router.get("/secrets")
+async def get_secrets() -> dict:
+    """Check which secrets are configured (never returns actual values)."""
+    from pathlib import Path
+    env_path = Path(".env")
+    keys_set = {}
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key = line.split("=", 1)[0].strip()
+                keys_set[key] = True
+    return {
+        "IMAGE_GEN_API_KEY": keys_set.get("IMAGE_GEN_API_KEY", False),
+        "OPENAI_API_KEY": keys_set.get("OPENAI_API_KEY", False),
+        "TELEGRAM_BOT_TOKEN": keys_set.get("TELEGRAM_BOT_TOKEN", False),
+    }
+
+
+@router.post("/secrets")
+async def save_secrets(request: Request, body: dict) -> dict:
+    """Save API keys to .env file. Only saves non-empty values."""
+    from pathlib import Path
+    env_path = Path(".env")
+
+    # Load existing
+    existing = {}
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, val = line.split("=", 1)
+                existing[key.strip()] = val.strip()
+
+    # Update with new values (only non-empty)
+    allowed_keys = ["IMAGE_GEN_API_KEY", "OPENAI_API_KEY", "TELEGRAM_BOT_TOKEN"]
+    for key in allowed_keys:
+        if key in body and body[key]:
+            existing[key] = body[key]
+            # Also set in current process
+            import os
+            os.environ[key] = body[key]
+
+    # Write .env
+    lines = [f"{k}={v}" for k, v in existing.items()]
+    env_path.write_text("\n".join(lines) + "\n")
+
+    # Reload image gen if key was updated
+    if "IMAGE_GEN_API_KEY" in body and body["IMAGE_GEN_API_KEY"]:
+        settings = request.app.state.settings
+        settings.extensions.image_gen_api_key = body["IMAGE_GEN_API_KEY"]
+        from opensentara.extensions.image_gen import create_image_backend
+        if settings.extensions.image_gen_enabled:
+            image_backend = create_image_backend(
+                backend=settings.extensions.image_gen_backend,
+                api_key=body["IMAGE_GEN_API_KEY"],
+                url=settings.extensions.image_gen_url,
+                model=settings.extensions.image_gen_model,
+            )
+            # Try to update poster
+            scheduler = getattr(request.app.state, "scheduler", None)
+            if scheduler:
+                job = scheduler.scheduler.get_job("post")
+                if job and hasattr(job.func, '__self__'):
+                    job.func.__self__.image_backend = image_backend
+
+    return {"status": "saved", "keys": list(existing.keys())}
+
+
 @router.post("/scheduler/trigger/{action}")
 async def trigger_action(request: Request, action: str) -> dict:
     """Manually trigger a scheduled action: post, reflect, engage, decay."""

@@ -527,6 +527,8 @@ input:focus { border-color: var(--accent); }
     0%, 100% { border-left-color: var(--text-dim); }
     50% { border-left-color: var(--accent); }
 }
+.secrets-grid { display: flex; flex-direction: column; gap: 10px; }
+.secret-row input { font-family: var(--font); }
 .thinking-question {
     font-style: italic; color: var(--text); font-size: 12px; opacity: 0.7;
 }

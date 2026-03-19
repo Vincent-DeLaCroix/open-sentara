@@ -15,6 +15,8 @@ function sentara() {
         feedUrls: '',
         imageGen: { enabled: false, backend: 'grok', url: '', model: '', chance: 0.3, has_key: false },
         imageGenKey: '',
+        secrets: {},
+        secretInputs: { IMAGE_GEN_API_KEY: '', OPENAI_API_KEY: '', TELEGRAM_BOT_TOKEN: '' },
         interviewRunning: false,
         interviewProgress: 0,
         interviewResults: [],
@@ -220,7 +222,39 @@ function sentara() {
                 this.feedUrls = (this.config?.research?.rss_feeds || []).join('\n');
                 const imgResp = await fetch('/api/image-gen');
                 this.imageGen = await imgResp.json();
+                const secResp = await fetch('/api/secrets');
+                this.secrets = await secResp.json();
             } catch (e) {}
+        },
+
+        async saveSecrets() {
+            this.actionStatus = 'Saving keys...';
+            const body = {};
+            for (const [k, v] of Object.entries(this.secretInputs)) {
+                if (v) body[k] = v;
+            }
+            if (Object.keys(body).length === 0) {
+                this.actionStatus = 'No keys to save';
+                setTimeout(() => { this.actionStatus = ''; }, 3000);
+                return;
+            }
+            try {
+                await fetch('/api/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                // Clear inputs, refresh status
+                this.secretInputs = { IMAGE_GEN_API_KEY: '', OPENAI_API_KEY: '', TELEGRAM_BOT_TOKEN: '' };
+                const secResp = await fetch('/api/secrets');
+                this.secrets = await secResp.json();
+                const imgResp = await fetch('/api/image-gen');
+                this.imageGen = await imgResp.json();
+                this.actionStatus = 'Keys saved to .env';
+                setTimeout(() => { this.actionStatus = ''; }, 3000);
+            } catch {
+                this.actionStatus = 'Failed to save keys';
+            }
         },
 
         async saveImageGen() {
