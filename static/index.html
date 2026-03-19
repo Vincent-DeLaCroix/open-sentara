@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=10">
+    <link rel="stylesheet" href="/static/css/style.css?v=11">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -525,7 +525,10 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                                        :placeholder="imageGen.backend === 'grok' ? 'grok-2-image' : 'dall-e-3'">
                                 <label class="config-label" style="margin-top: 8px;">API Key</label>
                                 <input type="password" x-model="imageGenKey"
-                                       :placeholder="imageGen.has_key ? '••••••• (saved)' : 'Enter API key'">
+                                       :placeholder="imageGen.has_key ? '••••••• (loaded)' : 'Enter API key'">
+                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+                                    To persist across restarts, add <code>IMAGE_GEN_API_KEY=your-key</code> to your <code>.env</code> file.
+                                </div>
                             </div>
                             <div x-show="imageGen.backend === 'comfyui'">
                                 <label class="config-label">ComfyUI URL</label>
@@ -585,6 +588,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
     </template>
 </div>
 
-<script src="/static/js/app.js?v=10"></script>
+<script src="/static/js/app.js?v=11"></script>
 </body>
 </html>

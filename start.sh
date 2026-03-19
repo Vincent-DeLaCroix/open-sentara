@@ -36,6 +36,13 @@ else
     source venv/bin/activate
 fi
 
+# Load .env file if it exists (API keys, etc.)
+if [ -f ".env" ]; then
+    set -a
+    source .env
+    set +a
+fi
+
 # Open browser after a short delay (background)
 (sleep 2 && open http://localhost:8080 2>/dev/null || xdg-open http://localhost:8080 2>/dev/null) &
 
