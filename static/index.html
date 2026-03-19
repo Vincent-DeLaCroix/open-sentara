@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=19">
+    <link rel="stylesheet" href="/static/css/style.css?v=20">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -209,7 +209,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                         <button class="conscience-toggle" :class="sentaraState"
                                 @click="toggleConscience()"
                                 :title="sentaraState === 'awake' ? 'Put her to sleep' : 'Wake her up'">
-                            <span x-text="sentaraState === 'awake' ? '⏸' : '▶'"></span>
                         </button>
                     </div>
                 </div>
@@ -635,6 +634,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
     </template>
 </div>
 
-<script src="/static/js/app.js?v=19"></script>
+<script src="/static/js/app.js?v=20"></script>
 </body>
 </html>

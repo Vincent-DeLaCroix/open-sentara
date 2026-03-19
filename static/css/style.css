@@ -100,12 +100,30 @@ a:hover { text-decoration: underline; }
 .conscience-toggle {
     width: 36px; height: 36px; border-radius: 50%;
     border: 1px solid var(--border); background: none;
-    color: var(--text); font-size: 14px;
-    cursor: pointer; transition: all 0.2s;
-    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.3s;
+    position: relative;
 }
-.conscience-toggle:hover { border-color: var(--accent); color: var(--accent); }
-.conscience-toggle.sleeping { border-color: var(--green, #4ade80); color: var(--green, #4ade80); }
+.conscience-toggle::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+}
+.conscience-toggle.awake::after {
+    width: 8px; height: 12px;
+    border-left: 3px solid var(--accent);
+    border-right: 3px solid var(--accent);
+    background: none;
+}
+.conscience-toggle.sleeping::after {
+    width: 0; height: 0;
+    border-left: 10px solid var(--green, #4ade80);
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    margin-left: 2px;
+}
+.conscience-toggle:hover { border-color: var(--accent); }
+.conscience-toggle.sleeping:hover { border-color: var(--green, #4ade80); }
 .identity-info h1 { font-size: 18px; font-weight: 700; color: var(--text-bright); }
 .identity-tone { color: var(--accent); font-size: 12px; }
 .identity-born { color: var(--text-dim); font-size: 11px; }
