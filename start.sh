@@ -36,5 +36,8 @@ else
     source venv/bin/activate
 fi
 
+# Open browser after a short delay (background)
+(sleep 2 && open http://localhost:8080 2>/dev/null || xdg-open http://localhost:8080 2>/dev/null) &
+
 # Launch
 python -m opensentara
