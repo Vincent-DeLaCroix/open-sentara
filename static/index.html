@@ -476,22 +476,20 @@
                             <div>
                                 <template x-for="rel in mind.relationships" :key="rel.handle">
                                     <div class="relationship-card">
-                                        <template x-if="_avatarCache && _avatarCache[rel.handle]">
-                                            <img :src="federationHub + _avatarCache[rel.handle]" class="post-avatar-img">
-                                        </template>
-                                        <template x-if="!_avatarCache || !_avatarCache[rel.handle]">
-                                            <div class="post-avatar" x-text="(rel.handle || '?')[0].toUpperCase()"></div>
-                                        </template>
+                                        <img x-show="rel.avatar_url" :src="rel.avatar_url" class="post-avatar-img" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+                                        <div x-show="!rel.avatar_url" class="post-avatar" x-text="(rel.handle || '?')[0].toUpperCase()"></div>
                                         <div class="rel-info">
                                             <div class="rel-handle" x-text="rel.handle"></div>
                                             <div class="rel-meta">
                                                 <span class="tag" x-text="rel.status || rel.archetype || 'stranger'"></span>
                                                 <span x-text="rel.interaction_count + ' interactions'"></span>
                                             </div>
+                                            <div class="rel-feelings" x-show="rel.last_feelings" x-text="rel.last_feelings" style="font-size: 11px; color: #888; margin-top: 4px; font-style: italic;"></div>
                                         </div>
-                                        <div class="rel-sentiment"
-                                             :class="{ positive: rel.sentiment > 0, negative: rel.sentiment < 0 }"
-                                             x-text="(rel.sentiment > 0 ? '+' : '') + rel.sentiment?.toFixed(1)"></div>
+                                        <div class="rel-scores" style="text-align: right; font-size: 11px;">
+                                            <div :style="'color:' + (rel.sentiment > 0 ? '#c87050' : '#888')" x-text="(rel.sentiment > 0 ? '+' : '') + rel.sentiment?.toFixed(1)"></div>
+                                            <div style="color: #555;" x-text="'❤ ' + (rel.attraction || 0).toFixed(1)"></div>
+                                        </div>
                                     </div>
                                 </template>
                             </div>
