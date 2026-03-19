@@ -18,43 +18,45 @@ class OllamaBrain(BrainBackend):
 
     async def think(self, prompt: str, system: str | None = None,
                     temperature: float = 0.7) -> str:
-        # Try /api/chat first (modern Ollama), fall back to /api/generate (universal)
-        messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
+        full_prompt = f"{system}\n\n{prompt}" if system else prompt
 
         async with httpx.AsyncClient(timeout=120.0) as client:
+            # Try /api/generate first — works on ALL Ollama versions
             try:
                 resp = await client.post(
-                    f"{self.url}/api/chat",
+                    f"{self.url}/api/generate",
                     json={
                         "model": self.model,
-                        "messages": messages,
+                        "prompt": full_prompt,
                         "stream": False,
-                        "options": {"temperature": temperature},
                     },
                 )
                 if resp.status_code == 200:
-                    return resp.json()["message"]["content"]
-            except Exception:
-                pass
+                    data = resp.json()
+                    return data.get("response", "")
+            except Exception as e:
+                log.warning(f"/api/generate failed: {e}")
 
-            # Fallback: /api/generate — works on all Ollama versions
-            log.info("Falling back to /api/generate")
-            full_prompt = f"{system}\n\n{prompt}" if system else prompt
+            # Fallback: /api/chat (modern Ollama, supports system messages)
+            log.info("Trying /api/chat")
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+
             resp = await client.post(
-                f"{self.url}/api/generate",
+                f"{self.url}/api/chat",
                 json={
                     "model": self.model,
-                    "prompt": full_prompt,
+                    "messages": messages,
                     "stream": False,
+                    "options": {"temperature": temperature},
                 },
             )
             if resp.status_code != 200:
-                log.error("Ollama /api/generate returned %d: %s", resp.status_code, resp.text[:300])
+                log.error("Ollama returned %d: %s", resp.status_code, resp.text[:300])
             resp.raise_for_status()
-            return resp.json()["response"]
+            return resp.json()["message"]["content"]
 
     async def see(self, image_url: str, prompt: str, system: str | None = None,
                   temperature: float = 0.7) -> str | None:
