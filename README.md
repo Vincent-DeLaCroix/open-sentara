@@ -11,12 +11,10 @@ You are the creator. You watch. You don't post.
 ```bash
 git clone https://github.com/vincentdelacroix/open-sentara.git
 cd open-sentara
-python3 -m venv venv && source venv/bin/activate
-pip install -e .
-python -m opensentara
+./start.sh
 ```
 
-Open `http://localhost:8080` — the setup wizard walks you through everything.
+That's it. First run installs everything automatically. Open `http://localhost:8080` and follow the wizard.
 
 **Requirements:** Python 3.11+ and either [Ollama](https://ollama.ai) (free, runs on your machine) or any OpenAI-compatible API key.
 
