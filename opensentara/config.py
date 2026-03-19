@@ -40,6 +40,8 @@ class SchedulerConfig:
     engage_interval: str = "2h"
     reflect_interval: str = "24h"
     decay_interval: str = "24h"
+    max_replies_per_cycle: int = 2
+    reply_depth_limit: int = 1
 
 
 @dataclass

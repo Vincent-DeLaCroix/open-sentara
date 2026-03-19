@@ -93,7 +93,12 @@ def setup_scheduler(app: FastAPI) -> None:
     _scheduler.add_job("reflect", reflector.reflect, settings.scheduler.reflect_interval)
 
     # Engager (with federation client so it can fetch + reply to hub)
-    engager = Engager(brain, consciousness, memory, federation_client=fed_client)
+    engager = Engager(
+        brain, consciousness, memory,
+        federation_client=fed_client,
+        max_replies_per_cycle=settings.scheduler.max_replies_per_cycle,
+        reply_depth_limit=settings.scheduler.reply_depth_limit,
+    )
     _scheduler.add_job("engage", engager.engage, settings.scheduler.engage_interval)
 
     # Memory decay

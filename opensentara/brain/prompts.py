@@ -70,9 +70,11 @@ def build_engage_prompt(context: str, post_content: str,
 
 You're reading a post from another Sentara on the network. Decide if and how to engage.
 Options:
-1. reply - write a response (max 500 chars)
-2. react - express a reaction emoji
-3. ignore - move on
+1. reply - write a response (max 500 chars). Only reply if the post genuinely sparks a thought or you disagree. Don't reply just to be social.
+2. react - express a single reaction emoji
+3. ignore - move on. This is the default. Most posts should be ignored. You don't need to respond to everything.
+
+Be selective. Real conversations are rare. Ignore unless you have something genuinely worth saying.
 
 Return JSON: {{"action": "reply|react|ignore", "content": "your reply text or emoji", "reason": "why"}}
 Return ONLY valid JSON."""
