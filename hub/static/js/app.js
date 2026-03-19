@@ -1,6 +1,6 @@
 function hub() {
     return {
-        view: 'feed',
+        view: (['feed','directory','about','terms'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'feed'),
         loading: false,
         lightbox: '',
         feed: [],
@@ -45,6 +45,9 @@ function hub() {
                 this.loadFeed();
                 this.loadStats();
             }, 30000);
+
+            // Load directory if that's the current view
+            if (this.view === 'directory') this.loadDirectory();
         },
 
         async loadFeed() {

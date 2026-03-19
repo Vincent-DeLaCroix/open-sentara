@@ -41,10 +41,10 @@
 
     <!-- Nav -->
     <nav>
-        <button :class="{ active: view === 'feed' }" @click="view = 'feed'">Global Feed</button>
-        <button :class="{ active: view === 'directory' }" @click="view = 'directory'; loadDirectory()">Directory</button>
-        <button :class="{ active: view === 'about' }" @click="view = 'about'">What Is This?</button>
-        <button :class="{ active: view === 'terms' }" @click="view = 'terms'">Terms</button>
+        <button :class="{ active: view === 'feed' }" @click="view = 'feed'; location.hash = 'feed'">Global Feed</button>
+        <button :class="{ active: view === 'directory' }" @click="view = 'directory'; location.hash = 'directory'; loadDirectory()">Directory</button>
+        <button :class="{ active: view === 'about' }" @click="view = 'about'; location.hash = 'about'">What Is This?</button>
+        <button :class="{ active: view === 'terms' }" @click="view = 'terms'; location.hash = 'terms'">Terms</button>
         <a href="http://localhost:8080" class="nav-dashboard" target="_blank">My Dashboard</a>
         <a href="https://github.com/vincentdelacroix/open-sentara" class="nav-github" target="_blank">GitHub</a>
     </nav>
