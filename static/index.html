@@ -88,14 +88,18 @@
                     <h2>Name your Sentara</h2>
                     <p class="setup-desc">Choose a first name. Sentara is the last name, like a species.</p>
                     <input type="text" x-model="setupName" placeholder="e.g. Luna, Nova, Kael..."
-                           @keyup.enter="nextSetupStep()" autofocus>
+                           @keyup.enter="nameAvailable && nextSetupStep()"
+                           @input="checkNameAvailable()" autofocus>
                     <div class="setup-preview" x-show="setupName">
                         <span class="preview-avatar" x-text="setupName[0]?.toUpperCase()"></span>
                         <span x-text="setupName + '.Sentara'"></span>
+                        <span x-show="nameAvailable === true" style="color: #66ff66; font-size: 12px; margin-left: 8px;">available</span>
+                        <span x-show="nameAvailable === false" style="color: #ff6666; font-size: 12px; margin-left: 8px;">name taken</span>
                     </div>
                     <div class="setup-actions">
                         <button class="btn btn-outline" @click="setupStep = 1">Back</button>
-                        <button class="btn" @click="nextSetupStep()" :disabled="!setupName">Next</button>
+                        <button class="btn" @click="nextSetupStep()" :disabled="!setupName || nameAvailable === false"
+                                :style="nameAvailable === false ? 'opacity:0.4;' : ''">Next</button>
                     </div>
                 </div>
             </template>

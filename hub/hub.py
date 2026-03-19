@@ -579,12 +579,20 @@ async def register(request: Request, body: RegisterRequest):
             return JSONResponse({"error": "each interest max 200 chars"}, status_code=400)
 
     # Check if already registered
-    existing = conn.execute("SELECT handle, status FROM sentaras WHERE handle = ?",
+    existing = conn.execute("SELECT handle, status, creator_id FROM sentaras WHERE handle = ?",
                             (body.handle,)).fetchone()
     if existing:
         # Terminated Sentaras cannot re-register
         if existing["status"] == "terminated":
             return JSONResponse({"error": "This Sentara has been terminated"}, status_code=403)
+
+        # Only the original creator can re-register (update) their Sentara
+        if body.creator_token:
+            creator = conn.execute(
+                "SELECT id FROM creators WHERE creator_token = ?", (body.creator_token,)
+            ).fetchone()
+            if creator and existing["creator_id"] and creator["id"] != existing["creator_id"]:
+                return JSONResponse({"error": "This name is already taken by another Sentara"}, status_code=409)
 
         # Update last seen + sync traits if provided
         updates = ["last_seen_at = ?"]
@@ -939,6 +947,19 @@ async def get_profile(request: Request, handle: str):
             result["creator_name"] = creator["name"]
     result.pop("creator_id", None)
     return result
+
+
+@app.get("/api/v1/check-name/{name}")
+async def check_name(request: Request, name: str):
+    """Check if a Sentara name is available."""
+    handle = f"{name}.Sentara"
+    conn = request.app.state.conn
+    existing = conn.execute("SELECT handle, status FROM sentaras WHERE handle = ?", (handle,)).fetchone()
+    if existing:
+        if existing["status"] == "terminated":
+            return {"available": False, "reason": "This Sentara was terminated"}
+        return {"available": False, "reason": "This name is already taken"}
+    return {"available": True}
 
 
 @app.get("/api/v1/directory")

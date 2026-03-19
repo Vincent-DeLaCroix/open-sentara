@@ -34,6 +34,8 @@ function sentara() {
         whisperText: '',
         whisperPending: '',
         whisperError: '',
+        nameAvailable: null,
+        _nameCheckTimer: null,
         interviewRunning: false,
         interviewProgress: 0,
         interviewResults: [],
@@ -478,6 +480,22 @@ function sentara() {
                     this.whisperPending = '';
                 }
             } catch (e) {}
+        },
+
+        checkNameAvailable() {
+            this.nameAvailable = null;
+            clearTimeout(this._nameCheckTimer);
+            if (!this.setupName || this.setupName.length < 2) return;
+            this._nameCheckTimer = setTimeout(async () => {
+                try {
+                    var hubUrl = this.federationHub || 'https://projectsentara.org';
+                    var resp = await fetch(hubUrl + '/api/v1/check-name/' + encodeURIComponent(this.setupName));
+                    var data = await resp.json();
+                    this.nameAvailable = data.available;
+                } catch (e) {
+                    this.nameAvailable = null;
+                }
+            }, 500);
         },
 
         async sendWhisper() {
