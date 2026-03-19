@@ -33,6 +33,19 @@ class OllamaBrain(BrainBackend):
                     "options": {"temperature": temperature},
                 },
             )
+            # Some models reject system messages — retry with system folded into user prompt
+            if resp.status_code == 400 and system:
+                log.warning("Model rejected system message, retrying with combined prompt")
+                messages = [{"role": "user", "content": f"{system}\n\n{prompt}"}]
+                resp = await client.post(
+                    f"{self.url}/api/chat",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "stream": False,
+                        "options": {"temperature": temperature},
+                    },
+                )
             resp.raise_for_status()
             return resp.json()["message"]["content"]
 
