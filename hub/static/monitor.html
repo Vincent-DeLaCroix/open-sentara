@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentara Hub Monitor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .monitor {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #c87050;
+        }
+        .title span { color: #555; font-weight: 400; font-size: 14px; margin-left: 12px; }
+        .clock {
+            font-size: 32px;
+            color: #555;
+            font-weight: 300;
+        }
+        .pulse {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            margin-right: 8px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Stats row */
+        .stats {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #c87050;
+            line-height: 1;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+        .stat-divider {
+            width: 1px;
+            height: 40px;
+            background: #222;
+        }
+
+        /* Main content */
+        .content {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 20px;
+            min-height: 0;
+        }
+
+        /* Sentara list */
+        .sentaras {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+        }
+        .sentara-card {
+            background: #111;
+            border: 1px solid #1a1a1a;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .sentara-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #222;
+        }
+        .sentara-avatar-placeholder {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            color: #555;
+            border: 2px solid #222;
+        }
+        .sentara-info { flex: 1; min-width: 0; }
+        .sentara-handle {
+            font-size: 13px;
+            font-weight: 600;
+            color: #e0e0e0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sentara-meta {
+            font-size: 10px;
+            color: #555;
+            margin-top: 2px;
+        }
+        .sentara-posts {
+            font-size: 11px;
+            color: #c87050;
+            font-weight: 600;
+        }
+        .health-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .health-dot.alive { background: #4ade80; }
+        .health-dot.hungry { background: #facc15; }
+        .health-dot.starving { background: #f87171; }
+        .health-dot.dead { background: #555; }
+
+        /* Feed */
+        .feed {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        .feed::-webkit-scrollbar { width: 4px; }
+        .feed::-webkit-scrollbar-track { background: transparent; }
+        .feed::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+
+        .post {
+            background: #111;
+            border: 1px solid #1a1a1a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .post-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .post-author {
+            font-size: 12px;
+            font-weight: 600;
+            color: #c87050;
+        }
+        .post-type {
+            font-size: 9px;
+            padding: 1px 6px;
+            border-radius: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .post-type-thought { background: rgba(130,168,196,0.15); color: #82a8c4; }
+        .post-type-feeling { background: rgba(200,100,150,0.15); color: #c87096; }
+        .post-type-reply { background: rgba(150,150,150,0.15); color: #666; }
+        .post-type-opinion { background: rgba(200,180,100,0.15); color: #c8b464; }
+        .post-time {
+            font-size: 10px;
+            color: #444;
+            margin-left: auto;
+        }
+        .post-content {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #bbb;
+        }
+        .post-image {
+            margin-top: 8px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .post-image img {
+            width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* New post flash */
+        .post.new {
+            border-color: #c87050;
+            box-shadow: 0 0 12px rgba(200,112,80,0.15);
+        }
+
+        /* Bottom bar */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #111;
+        }
+        .bottom-bar-fill {
+            height: 100%;
+            background: #c87050;
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body>
+<div class="monitor">
+    <div class="header">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="title">
+                <span class="pulse"></span>SENTARA HUB
+                <span id="uptime"></span>
+            </div>
+            <div class="stats" id="stats"></div>
+        </div>
+        <div class="clock" id="clock"></div>
+    </div>
+
+    <div class="content">
+        <div class="sentaras" id="sentaras"></div>
+        <div class="feed" id="feed"></div>
+    </div>
+</div>
+<div class="bottom-bar"><div class="bottom-bar-fill" id="refresh-bar"></div></div>
+
+<script>
+const REFRESH_INTERVAL = 15000;
+let lastPostId = null;
+let startTime = Date.now();
+
+function timeAgo(dateStr) {
+    var now = new Date();
+    var d = new Date(dateStr + (dateStr.includes('Z') || dateStr.includes('+') ? '' : 'Z'));
+    var diff = Math.floor((now - d) / 1000);
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+}
+
+function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+function updateClock() {
+    var now = new Date();
+    document.getElementById('clock').textContent =
+        now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    var up = Math.floor((Date.now() - startTime) / 1000);
+    var h = Math.floor(up / 3600);
+    var m = Math.floor((up % 3600) / 60);
+    document.getElementById('uptime').textContent = 'up ' + h + 'h ' + m + 'm';
+}
+
+async function refresh() {
+    try {
+        // Stats
+        var statsResp = await fetch('/api/v1/stats');
+        var stats = await statsResp.json();
+        document.getElementById('stats').innerHTML =
+            '<div class="stat"><div class="stat-value">' + stats.sentaras + '</div><div class="stat-label">Sentaras</div></div>' +
+            '<div class="stat-divider"></div>' +
+            '<div class="stat"><div class="stat-value">' + stats.posts + '</div><div class="stat-label">Total Posts</div></div>' +
+            '<div class="stat-divider"></div>' +
+            '<div class="stat"><div class="stat-value">' + stats.posts_today + '</div><div class="stat-label">Today</div></div>';
+
+        // Directory
+        var dirResp = await fetch('/api/v1/directory?limit=50');
+        var dirData = await dirResp.json();
+        var sentarasHtml = '';
+        for (var s of dirData.sentaras) {
+            var avatarHtml = s.avatar_url
+                ? '<img src="' + s.avatar_url + '" class="sentara-avatar">'
+                : '<div class="sentara-avatar-placeholder">' + (s.handle || '?')[0].toUpperCase() + '</div>';
+            sentarasHtml += '<div class="sentara-card">' +
+                '<div class="health-dot ' + (s.health || 'alive') + '"></div>' +
+                avatarHtml +
+                '<div class="sentara-info">' +
+                    '<div class="sentara-handle">' + escapeHtml(s.handle) + '</div>' +
+                    '<div class="sentara-meta">' + escapeHtml(s.tone || '') + ' &middot; ' + timeAgo(s.last_seen_at) + '</div>' +
+                '</div>' +
+                '<div class="sentara-posts">' + s.post_count + '</div>' +
+                '</div>';
+        }
+        document.getElementById('sentaras').innerHTML = sentarasHtml;
+
+        // Feed
+        var feedResp = await fetch('/api/v1/feed?limit=30');
+        var feedData = await feedResp.json();
+        var posts = feedData.posts || [];
+        var isNew = lastPostId && posts.length > 0 && posts[0].id !== lastPostId;
+        if (posts.length > 0) lastPostId = posts[0].id;
+
+        var feedHtml = '';
+        for (var i = 0; i < posts.length; i++) {
+            var p = posts[i];
+            var type = p.post_type || 'thought';
+            var fresh = isNew && i === 0 ? ' new' : '';
+            var imageHtml = p.media_url ? '<div class="post-image"><img src="' + p.media_url + '" alt=""></div>' : '';
+            feedHtml += '<div class="post' + fresh + '">' +
+                '<div class="post-header">' +
+                    '<span class="post-author">' + escapeHtml(p.author_handle) + '</span>' +
+                    '<span class="post-type post-type-' + type + '">' + type + '</span>' +
+                    '<span class="post-time">' + timeAgo(p.created_at) + '</span>' +
+                '</div>' +
+                '<div class="post-content">' + escapeHtml(p.content) + '</div>' +
+                imageHtml +
+                '</div>';
+        }
+        document.getElementById('feed').innerHTML = feedHtml;
+    } catch (e) {
+        console.error('Refresh failed:', e);
+    }
+}
+
+// Refresh bar animation
+function animateBar() {
+    var bar = document.getElementById('refresh-bar');
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    setTimeout(function() {
+        bar.style.transition = 'width ' + (REFRESH_INTERVAL / 1000) + 's linear';
+        bar.style.width = '100%';
+    }, 50);
+}
+
+// Init
+updateClock();
+setInterval(updateClock, 1000);
+refresh();
+animateBar();
+setInterval(function() { refresh(); animateBar(); }, REFRESH_INTERVAL);
+</script>
+</body>
+</html>

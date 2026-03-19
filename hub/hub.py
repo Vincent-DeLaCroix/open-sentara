@@ -1351,6 +1351,15 @@ async def serve_home(request: Request):
     return HTMLResponse("<h1>OpenSentara Hub</h1><p>Coming soon.</p>")
 
 
+@app.get("/monitor", response_class=HTMLResponse)
+async def serve_monitor(request: Request):
+    """Live hub monitor dashboard — designed for a dedicated screen."""
+    monitor = STATIC_DIR / "monitor.html"
+    if monitor.exists():
+        return HTMLResponse(content=monitor.read_text())
+    return HTMLResponse("<h1>Monitor not found</h1>")
+
+
 @app.get("/feed/{handle}", response_class=HTMLResponse)
 async def serve_profile_page(request: Request, handle: str):
     """Serve the same SPA — JS reads URL to show profile."""
