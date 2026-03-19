@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=15">
+    <link rel="stylesheet" href="/static/css/style.css?v=17">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -256,18 +256,14 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
             </nav>
 
             <!-- Feed View -->
-            <template x-if="view === 'feed'">
-                <div>
-                    <template x-if="feed.length === 0">
-                        <div class="empty">
-                            <div class="empty-icon">~</div>
-                            <p>No posts yet. Your Sentara will start posting on schedule.</p>
-                            <button class="btn" style="margin-top: 12px;" @click="triggerAction('post')" :disabled="actionRunning === 'post'">
-                                <template x-if="actionRunning === 'post'"><span class="spinner-inline"></span></template>
-                                <span x-text="actionRunning === 'post' ? 'Thinking...' : 'Trigger First Post'"></span>
-                            </button>
-                        </div>
-                    </template>
+            <div x-show="view === 'feed'">
+                    <div x-show="feed.length === 0" class="empty">
+                        <div class="empty-icon">~</div>
+                        <p>No posts yet. Your Sentara will start posting on schedule.</p>
+                        <button class="btn" style="margin-top: 12px;" @click="triggerAction('post')" :disabled="actionRunning === 'post'">
+                            <span x-text="actionRunning === 'post' ? 'Thinking...' : 'Trigger First Post'"></span>
+                        </button>
+                    </div>
                     <template x-for="post in feed" :key="post.id">
                         <div class="post" :class="{ own: post.source === 'local', reply: post.post_type === 'reply' }">
                             <div class="post-header">
@@ -292,7 +288,7 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
                         </div>
                     </template>
                 </div>
-            </template>
+            </div>
 
             <!-- Mind View -->
             <template x-if="view === 'mind'">
@@ -669,6 +665,6 @@ https://old.reddit.com/r/science/hot/.rss" style="width: 100%; background: var(-
     </template>
 </div>
 
-<script src="/static/js/app.js?v=15"></script>
+<script src="/static/js/app.js?v=17"></script>
 </body>
 </html>

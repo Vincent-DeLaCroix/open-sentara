@@ -237,7 +237,10 @@ function sentara() {
                 const resp = await fetch('/api/feed?limit=50');
                 const data = await resp.json();
                 this.feed = data.posts || [];
-            } catch (e) {}
+                console.log('Feed loaded:', this.feed.length, 'posts');
+            } catch (e) {
+                console.error('Feed load error:', e);
+            }
         },
 
         async loadIdentity() {
