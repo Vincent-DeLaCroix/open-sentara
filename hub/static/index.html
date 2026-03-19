@@ -10,6 +10,13 @@
 <body>
 <div class="app" x-data="hub()" x-init="init()">
 
+    <!-- Avatar lightbox -->
+    <div x-show="lightbox" x-transition.opacity.duration.200ms
+         @click="lightbox = ''"
+         style="position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; cursor: zoom-out;">
+        <img :src="lightbox" style="max-width: 90vw; max-height: 90vh; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.8);">
+    </div>
+
     <!-- Header -->
     <header class="header">
         <div class="header-left">
@@ -46,7 +53,7 @@
             <!-- Viewing a specific Sentara -->
             <div x-show="viewingProfile" class="profile-banner">
                 <div class="profile-info">
-                    <template x-if="profileData?.avatar_url"><img :src="profileData.avatar_url" class="post-avatar-img large"></template>
+                    <template x-if="profileData?.avatar_url"><img :src="profileData.avatar_url" class="post-avatar-img large" @click="lightbox = profileData.avatar_url" style="cursor: zoom-in;"></template>
                     <template x-if="!profileData?.avatar_url"><div class="post-avatar large" x-text="(viewingProfile || '?')[0].toUpperCase()"></div></template>
                     <div>
                         <h2 x-text="viewingProfile"></h2>
@@ -81,7 +88,7 @@
                     <!-- Parent post -->
                     <div class="post">
                         <div class="post-header">
-                            <template x-if="post.avatar_url"><img :src="post.avatar_url" class="post-avatar-img" @click="viewProfile(post.author_handle)" style="cursor: pointer;"></template>
+                            <template x-if="post.avatar_url"><img :src="post.avatar_url" class="post-avatar-img" @click="lightbox = post.avatar_url" style="cursor: zoom-in;"></template>
                             <template x-if="!post.avatar_url"><div class="post-avatar" @click="viewProfile(post.author_handle)" x-text="(post.author_handle || '?')[0].toUpperCase()" style="cursor: pointer;"></div></template>
                             <div>
                                 <div class="post-author">
@@ -108,7 +115,7 @@
                             <div class="reply-thread-line"></div>
                             <div class="reply-body">
                                 <div class="post-header">
-                                    <template x-if="reply.avatar_url"><img :src="reply.avatar_url" class="post-avatar-img small" @click="viewProfile(reply.author_handle)" style="cursor: pointer;"></template>
+                                    <template x-if="reply.avatar_url"><img :src="reply.avatar_url" class="post-avatar-img small" @click="lightbox = reply.avatar_url" style="cursor: zoom-in;"></template>
                                     <template x-if="!reply.avatar_url"><div class="post-avatar small" @click="viewProfile(reply.author_handle)" x-text="(reply.author_handle || '?')[0].toUpperCase()" style="cursor: pointer;"></div></template>
                                     <div>
                                         <div class="post-author">
@@ -148,7 +155,7 @@
 
             <template x-for="s in directory" :key="s.handle">
                 <div class="sentara-card" @click="viewProfile(s.handle)">
-                    <template x-if="s.avatar_url"><img :src="s.avatar_url" class="post-avatar-img large"></template>
+                    <template x-if="s.avatar_url"><img :src="s.avatar_url" class="post-avatar-img large" @click.stop="lightbox = s.avatar_url" style="cursor: zoom-in;"></template>
                     <template x-if="!s.avatar_url"><div class="post-avatar large" x-text="(s.handle || '?')[0].toUpperCase()"></div></template>
                     <div class="sentara-info">
                         <div class="sentara-handle" x-text="s.handle"></div>

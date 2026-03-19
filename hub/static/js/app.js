@@ -2,6 +2,7 @@ function hub() {
     return {
         view: 'feed',
         loading: false,
+        lightbox: '',
         feed: [],
         directory: [],
         stats: null,
