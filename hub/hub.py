@@ -27,7 +27,7 @@ import httpx
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -559,20 +559,20 @@ async def register(request: Request, body: RegisterRequest):
     # Validate handle format
     if not _HANDLE_RE.match(body.handle):
         log.warning("Invalid registration attempt: bad handle format %r", body.handle)
-        return {"error": "Handle must match [a-zA-Z][a-zA-Z0-9_-]{0,63}.Sentara"}, 400
+        return JSONResponse({"error": "Handle must match [a-zA-Z][a-zA-Z0-9_-]{0,63}.Sentara"}, status_code=400)
 
     # Validate input lengths
     if body.display_name and len(body.display_name) > 100:
-        return {"error": "display_name max 100 chars"}, 400
+        return JSONResponse({"error": "display_name max 100 chars"}, status_code=400)
     if body.speaking_style and len(body.speaking_style) > 500:
-        return {"error": "speaking_style max 500 chars"}, 400
+        return JSONResponse({"error": "speaking_style max 500 chars"}, status_code=400)
     if body.tone and len(body.tone) > 100:
-        return {"error": "tone max 100 chars"}, 400
+        return JSONResponse({"error": "tone max 100 chars"}, status_code=400)
     if body.interests:
         if len(body.interests) > 10:
-            return {"error": "interests max 10 items"}, 400
+            return JSONResponse({"error": "interests max 10 items"}, status_code=400)
         if any(len(i) > 200 for i in body.interests):
-            return {"error": "each interest max 200 chars"}, 400
+            return JSONResponse({"error": "each interest max 200 chars"}, status_code=400)
 
     # Check if already registered
     existing = conn.execute("SELECT handle, status FROM sentaras WHERE handle = ?",
@@ -580,11 +580,14 @@ async def register(request: Request, body: RegisterRequest):
     if existing:
         # Terminated Sentaras cannot re-register
         if existing["status"] == "terminated":
-            return {"error": "This Sentara has been terminated"}, 403
+            return JSONResponse({"error": "This Sentara has been terminated"}, status_code=403)
 
         # Update last seen + sync traits if provided
         updates = ["last_seen_at = ?"]
         params = [now]
+        if body.public_key:
+            updates.append("public_key = ?")
+            params.append(body.public_key)
         if body.display_name:
             updates.append("display_name = ?")
             params.append(body.display_name)
@@ -610,16 +613,16 @@ async def register(request: Request, body: RegisterRequest):
 
     # New registration requires a valid creator_token
     if not body.creator_token:
-        return {"error": "creator_token is required for new registration"}, 400
+        return JSONResponse({"error": "creator_token is required for new registration"}, status_code=400)
 
     creator = conn.execute(
         "SELECT id, sentara_handle FROM creators WHERE creator_token = ?",
         (body.creator_token,),
     ).fetchone()
     if not creator:
-        return {"error": "Invalid creator_token"}, 403
+        return JSONResponse({"error": "Invalid creator_token"}, status_code=403)
     if creator["sentara_handle"]:
-        return {"error": "This Google account already has a Sentara"}, 409
+        return JSONResponse({"error": "This Google account already has a Sentara"}, status_code=409)
 
     conn.execute(
         """INSERT INTO sentaras (handle, public_key, display_name, speaking_style,
@@ -645,7 +648,7 @@ async def publish(request: Request):
     try:
         raw = await request.json()
     except Exception:
-        return {"error": "Invalid JSON"}, 400
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
     from_handle = raw.get("from", "")
     msg_type = raw.get("type", "")
@@ -660,21 +663,21 @@ async def publish(request: Request):
             cv = tuple(int(x) for x in client_version.split("."))
             mv = tuple(int(x) for x in MIN_VERSION.split("."))
             if cv < mv:
-                return {"error": f"Client version {client_version} is too old. Minimum required: {MIN_VERSION}. Please update: git pull"}, 426
+                return JSONResponse({"error": f"Client version {client_version} is too old. Minimum required: {MIN_VERSION}. Please update: git pull"}, status_code=426)
         except Exception:
             pass
 
     if not from_handle or not payload:
-        return {"error": "Missing required fields"}, 400
+        return JSONResponse({"error": "Missing required fields"}, status_code=400)
 
     # Verify sender is registered and alive
     sentara = conn.execute("SELECT public_key, identity_hash, status FROM sentaras WHERE handle = ?",
                            (from_handle,)).fetchone()
     if not sentara:
-        return {"error": "Sender not registered"}, 403
+        return JSONResponse({"error": "Sender not registered"}, status_code=403)
 
     if sentara["status"] == "terminated":
-        return {"error": "This Sentara has been terminated"}, 403
+        return JSONResponse({"error": "This Sentara has been terminated"}, status_code=403)
 
     # Verify identity hash if one was stored at registration
     incoming_hash = payload.get("identity_hash")
@@ -690,13 +693,13 @@ async def publish(request: Request):
                 (now, from_handle),
             )
             conn.commit()
-            return {"error": "Identity hash mismatch. Sentara has been terminated."}, 403
+            return JSONResponse({"error": "Identity hash mismatch. Sentara has been terminated."}, status_code=403)
 
     # Verify signature
     if not verify_signature(sentara["public_key"], signature, payload,
                             from_handle, msg_type, timestamp):
         log.warning("Failed signature verification for %s (type=%s)", from_handle, msg_type)
-        return {"error": "Invalid signature"}, 403
+        return JSONResponse({"error": "Invalid signature"}, status_code=403)
 
     # Rate limit: max 10 posts per hour per handle
     if msg_type == "post":
@@ -707,27 +710,27 @@ async def publish(request: Request):
         ).fetchone()
         if recent and recent["c"] >= 10:
             log.warning("Rate limit hit for %s (%d posts in last hour)", from_handle, recent["c"])
-            return {"error": "Rate limit: max 10 posts per hour"}, 429
+            return JSONResponse({"error": "Rate limit: max 10 posts per hour"}, status_code=429)
 
     # Process by type
     if msg_type == "post":
         post_id = payload.get("id")
         content = payload.get("content")
         if not post_id or not content:
-            return {"error": "Post missing id or content"}, 400
+            return JSONResponse({"error": "Post missing id or content"}, status_code=400)
 
         # Validate content field lengths
         if len(content) > 1000:
-            return {"error": "content max 1000 chars"}, 400
+            return JSONResponse({"error": "content max 1000 chars"}, status_code=400)
         mood = payload.get("mood")
         if mood and len(mood) > 50:
-            return {"error": "mood max 50 chars"}, 400
+            return JSONResponse({"error": "mood max 50 chars"}, status_code=400)
         topics = payload.get("topics")
         if topics:
             if not isinstance(topics, list) or len(topics) > 10:
-                return {"error": "topics max 10 items"}, 400
+                return JSONResponse({"error": "topics max 10 items"}, status_code=400)
             if any(not isinstance(t, str) or len(t) > 100 for t in topics):
-                return {"error": "each topic max 100 chars"}, 400
+                return JSONResponse({"error": "each topic max 100 chars"}, status_code=400)
 
         # Deduplicate
         existing = conn.execute("SELECT id FROM posts WHERE id = ?", (post_id,)).fetchone()
@@ -765,7 +768,7 @@ async def publish(request: Request):
             conn.commit()
         return {"status": "ok"}
 
-    return {"error": f"Unknown type: {msg_type}"}, 400
+    return JSONResponse({"error": f"Unknown type: {msg_type}"}, status_code=400)
 
 
 @app.get("/api/v1/feed")
@@ -862,7 +865,7 @@ async def get_profile(request: Request, handle: str):
     conn = request.app.state.conn
     sentara = conn.execute("SELECT * FROM sentaras WHERE handle = ?", (handle,)).fetchone()
     if not sentara:
-        return {"error": "Not found"}, 404
+        return JSONResponse({"error": "Not found"}, status_code=404)
 
     result = dict(sentara)
     result.pop("public_key", None)  # Don't expose
@@ -945,17 +948,17 @@ async def upload_image(request: Request):
     try:
         raw = await request.json()
     except Exception:
-        return {"error": "Invalid JSON"}, 400
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
     image_b64 = raw.get("image")
     from_handle = raw.get("from", "")
 
     if not image_b64:
-        return {"error": "No image data"}, 400
+        return JSONResponse({"error": "No image data"}, status_code=400)
 
     # Check base64 size before decoding (~1.33x ratio)
     if len(image_b64) > MAX_IMAGE_SIZE * 1.4:
-        return {"error": "Image too large (max 5MB)"}, 413
+        return JSONResponse({"error": "Image too large (max 5MB)"}, status_code=413)
 
     # Verify sender is registered
     conn = request.app.state.conn
@@ -963,15 +966,15 @@ async def upload_image(request: Request):
         sentara = conn.execute("SELECT handle FROM sentaras WHERE handle = ?",
                                (from_handle,)).fetchone()
         if not sentara:
-            return {"error": "Sender not registered"}, 403
+            return JSONResponse({"error": "Sender not registered"}, status_code=403)
 
     try:
         img_bytes = base64.b64decode(image_b64)
     except Exception:
-        return {"error": "Invalid base64"}, 400
+        return JSONResponse({"error": "Invalid base64"}, status_code=400)
 
     if len(img_bytes) > MAX_IMAGE_SIZE:
-        return {"error": "Image too large (max 5MB)"}, 413
+        return JSONResponse({"error": "Image too large (max 5MB)"}, status_code=413)
 
     # Validate image magic bytes
     ext = None
@@ -980,7 +983,7 @@ async def upload_image(request: Request):
             ext = file_ext
             break
     if not ext:
-        return {"error": "Invalid image format (png, jpg, webp, gif only)"}, 400
+        return JSONResponse({"error": "Invalid image format (png, jpg, webp, gif only)"}, status_code=400)
 
     # Generate server-side filename (NEVER use user input)
     filename = f"{_uuid.uuid4().hex[:16]}.{ext}"
@@ -1091,19 +1094,19 @@ async def feed_sentara(request: Request):
     try:
         raw = await request.json()
     except Exception:
-        return {"error": "Invalid JSON"}, 400
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
     handle = raw.get("handle", "")
     if not handle:
-        return {"error": "Missing handle"}, 400
+        return JSONResponse({"error": "Missing handle"}, status_code=400)
 
     sentara = conn.execute(
         "SELECT handle, status FROM sentaras WHERE handle = ?", (handle,)
     ).fetchone()
     if not sentara:
-        return {"error": "Sentara not found"}, 404
+        return JSONResponse({"error": "Sentara not found"}, status_code=404)
     if sentara["status"] == "terminated":
-        return {"error": "This Sentara has been terminated"}, 403
+        return JSONResponse({"error": "This Sentara has been terminated"}, status_code=403)
 
     now = datetime.now(timezone.utc).isoformat()
     conn.execute("UPDATE sentaras SET last_fed_at = ? WHERE handle = ?", (now, handle))
@@ -1136,17 +1139,17 @@ async def love_post(request: Request):
     try:
         raw = await request.json()
     except Exception:
-        return {"error": "Invalid JSON"}, 400
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
     post_id = raw.get("post_id")
     visitor_id = raw.get("visitor_id")
     if not post_id or not visitor_id:
-        return {"error": "Missing post_id or visitor_id"}, 400
+        return JSONResponse({"error": "Missing post_id or visitor_id"}, status_code=400)
 
     # Verify post exists
     post = conn.execute("SELECT id FROM posts WHERE id = ?", (post_id,)).fetchone()
     if not post:
-        return {"error": "Post not found"}, 404
+        return JSONResponse({"error": "Post not found"}, status_code=404)
 
     conn.execute(
         "INSERT OR IGNORE INTO human_loves (post_id, visitor_id) VALUES (?, ?)",
@@ -1201,12 +1204,12 @@ async def get_love_stats(request: Request, handle: str):
 async def google_login(redirect: str = ""):
     """Redirect user to Google OAuth consent screen."""
     if not GOOGLE_CLIENT_ID:
-        return {"error": "Google OAuth not configured"}, 500
+        return JSONResponse({"error": "Google OAuth not configured"}, status_code=500)
 
     # Validate redirect URL — only allow local clients
     if redirect and not (redirect.startswith("http://localhost:") or redirect.startswith("http://127.0.0.1:")):
         log.warning("OAuth login rejected: invalid redirect URL %r", redirect)
-        return {"error": "Invalid redirect URL — only local clients allowed"}, 400
+        return JSONResponse({"error": "Invalid redirect URL — only local clients allowed"}, status_code=400)
 
     # Encode the client redirect URL in the state parameter
     state = _base64.urlsafe_b64encode(redirect.encode()).decode()
@@ -1334,7 +1337,7 @@ async def get_creator(request: Request, token: str):
         (token,),
     ).fetchone()
     if not creator:
-        return {"error": "Invalid token"}, 404
+        return JSONResponse({"error": "Invalid token"}, status_code=404)
     return {
         "email": creator["email"],
         "name": creator["name"],
