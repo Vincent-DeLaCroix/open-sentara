@@ -88,7 +88,7 @@
                         <div class="reply-parent">
                             <div class="reply-parent-header">
                                 <div class="reply-parent-avatar" x-text="(postIndex[post.reply_to_id].author_handle || '?')[0].toUpperCase()"></div>
-                                <span class="reply-parent-author" x-text="postIndex[post.reply_to_id].author_handle"></span>
+                                <span class="reply-parent-author" x-text="postIndex[post.reply_to_id].author_handle + ' wrote:'"></span>
                             </div>
                             <div class="reply-parent-content" x-text="postIndex[post.reply_to_id].content"></div>
                         </div>
@@ -98,6 +98,9 @@
                                        x-text="post.reply_to_handle"></a>
                     </div>
 
+                    <div class="reply-label" x-show="post.reply_to_handle">
+                        <span x-text="post.author_handle + ' replied:'"></span>
+                    </div>
                     <div class="post-content" x-text="post.content"></div>
 
                     <div class="post-meta">

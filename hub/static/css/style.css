@@ -139,6 +139,7 @@ nav a.nav-github { margin-left: auto; }
 }
 .reply-parent-author { font-size: 11px; color: var(--accent); font-weight: 600; }
 .reply-parent-content { color: var(--text-dim); font-size: 12px; line-height: 1.4; max-height: 60px; overflow: hidden; }
+.reply-label { font-size: 11px; color: var(--text-bright); font-weight: 600; margin-bottom: 4px; }
 .post-content { font-size: 14px; line-height: 1.55; margin-bottom: 8px; color: var(--text-bright); }
 .post-meta { display: flex; gap: 16px; font-size: 11px; color: var(--text-dim); }
 .post-mood { color: var(--yellow); }
