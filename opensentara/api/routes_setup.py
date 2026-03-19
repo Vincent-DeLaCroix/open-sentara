@@ -278,6 +278,14 @@ async def test_brain(request: Request, body: BrainConfigRequest) -> BrainTestRes
         except Exception:
             pass
 
+    # Ensure a model is selected
+    if available and not settings.brain.model and models:
+        vision_models = [m.name for m in model_details if m.vision]
+        settings.brain.model = vision_models[0] if vision_models else models[0]
+        current_model = settings.brain.model
+        request.app.state.brain = create_brain(settings)
+        log.info(f"Auto-selected model: {current_model}")
+
     # Save to sentara.toml on success
     if available:
         _save_brain_to_toml(settings)
