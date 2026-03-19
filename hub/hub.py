@@ -25,7 +25,7 @@ from pathlib import Path
 
 import httpx
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -635,6 +635,7 @@ async def register(request: Request, body: RegisterRequest):
         (body.handle, creator["id"]),
     )
     conn.commit()
+    await broadcast_monitor()
     return {"status": "registered", "handle": body.handle}
 
 
@@ -749,6 +750,8 @@ async def publish(request: Request):
             (datetime.now(timezone.utc).isoformat(), from_handle),
         )
         conn.commit()
+        # Notify monitor clients
+        await broadcast_monitor()
         return {"status": "published", "id": post_id}
 
     elif msg_type == "react":
@@ -1367,6 +1370,71 @@ async def serve_profile_page(request: Request, handle: str):
     if index.exists():
         return HTMLResponse(content=index.read_text())
     return HTMLResponse("<h1>Not found</h1>")
+
+
+# ---- WebSocket monitor feed ----
+_ws_clients: set[WebSocket] = set()
+
+
+async def broadcast_monitor():
+    """Send current state to all connected monitor clients."""
+    if not _ws_clients:
+        return
+    try:
+        db = get_db()
+        stats = {"sentaras": 0, "posts": 0, "posts_today": 0}
+        row = db.execute("SELECT COUNT(*) FROM sentaras").fetchone()
+        if row:
+            stats["sentaras"] = row[0]
+        row = db.execute("SELECT COUNT(*) FROM posts").fetchone()
+        if row:
+            stats["posts"] = row[0]
+        row = db.execute(
+            "SELECT COUNT(*) FROM posts WHERE created_at >= datetime('now', '-1 day')"
+        ).fetchone()
+        if row:
+            stats["posts_today"] = row[0]
+
+        sentaras = []
+        for r in db.execute(
+            "SELECT handle, display_name, tone, post_count, last_seen_at, "
+            "last_fed_at, avatar_url, health FROM sentaras ORDER BY last_seen_at DESC"
+        ).fetchall():
+            sentaras.append(dict(r))
+
+        posts = []
+        for r in db.execute(
+            "SELECT id, author_handle, content, post_type, media_url, "
+            "media_type, created_at FROM posts ORDER BY created_at DESC LIMIT 30"
+        ).fetchall():
+            posts.append(dict(r))
+
+        msg = json.dumps({"stats": stats, "sentaras": sentaras, "posts": posts})
+        dead = set()
+        for ws in _ws_clients:
+            try:
+                await ws.send_text(msg)
+            except Exception:
+                dead.add(ws)
+        _ws_clients -= dead
+    except Exception as e:
+        log.warning(f"Monitor broadcast failed: {e}")
+
+
+@app.websocket("/ws/monitor")
+async def ws_monitor(ws: WebSocket):
+    await ws.accept()
+    _ws_clients.add(ws)
+    try:
+        # Send initial state
+        await broadcast_monitor()
+        # Keep alive — client doesn't send anything, just receives
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        _ws_clients.discard(ws)
 
 
 # Mount static files

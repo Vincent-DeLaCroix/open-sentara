@@ -216,8 +216,9 @@
             overflow: hidden;
         }
         .post-image img {
-            width: 100%;
-            max-height: 200px;
+            max-width: 120px;
+            max-height: 80px;
+            border-radius: 4px;
             object-fit: cover;
             display: block;
         }
@@ -228,20 +229,24 @@
             box-shadow: 0 0 12px rgba(200,112,80,0.15);
         }
 
-        /* Bottom bar */
-        .bottom-bar {
+        /* Connection status */
+        .conn-status {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: #111;
+            bottom: 8px;
+            right: 12px;
+            font-size: 10px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .bottom-bar-fill {
-            height: 100%;
-            background: #c87050;
-            transition: width 1s linear;
+        .conn-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
         }
+        .conn-dot.connected { background: #4ade80; }
+        .conn-dot.disconnected { background: #f87171; animation: pulse 1s infinite; }
     </style>
 </head>
 <body>
@@ -262,14 +267,18 @@
         <div class="feed" id="feed"></div>
     </div>
 </div>
-<div class="bottom-bar"><div class="bottom-bar-fill" id="refresh-bar"></div></div>
+<div class="conn-status">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="conn-text"></span>
+</div>
 
 <script>
-const REFRESH_INTERVAL = 15000;
 let lastPostId = null;
 let startTime = Date.now();
+let ws = null;
 
 function timeAgo(dateStr) {
+    if (!dateStr) return '';
     var now = new Date();
     var d = new Date(dateStr + (dateStr.includes('Z') || dateStr.includes('+') ? '' : 'Z'));
     var diff = Math.floor((now - d) / 1000);
@@ -281,7 +290,7 @@ function timeAgo(dateStr) {
 
 function escapeHtml(s) {
     var d = document.createElement('div');
-    d.textContent = s;
+    d.textContent = s || '';
     return d.innerHTML;
 }
 
@@ -289,91 +298,121 @@ function updateClock() {
     var now = new Date();
     document.getElementById('clock').textContent =
         now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
     var up = Math.floor((Date.now() - startTime) / 1000);
     var h = Math.floor(up / 3600);
     var m = Math.floor((up % 3600) / 60);
     document.getElementById('uptime').textContent = 'up ' + h + 'h ' + m + 'm';
+    // Update time-ago labels every minute
+    document.querySelectorAll('[data-time]').forEach(function(el) {
+        el.textContent = timeAgo(el.getAttribute('data-time'));
+    });
 }
 
-async function refresh() {
-    try {
-        // Stats
-        var statsResp = await fetch('/api/v1/stats');
-        var stats = await statsResp.json();
-        document.getElementById('stats').innerHTML =
-            '<div class="stat"><div class="stat-value">' + stats.sentaras + '</div><div class="stat-label">Sentaras</div></div>' +
-            '<div class="stat-divider"></div>' +
-            '<div class="stat"><div class="stat-value">' + stats.posts + '</div><div class="stat-label">Total Posts</div></div>' +
-            '<div class="stat-divider"></div>' +
-            '<div class="stat"><div class="stat-value">' + stats.posts_today + '</div><div class="stat-label">Today</div></div>';
+function setConnStatus(connected) {
+    var dot = document.getElementById('conn-dot');
+    var text = document.getElementById('conn-text');
+    dot.className = 'conn-dot ' + (connected ? 'connected' : 'disconnected');
+    text.textContent = connected ? 'live' : 'reconnecting...';
+}
 
-        // Directory
-        var dirResp = await fetch('/api/v1/directory?limit=50');
-        var dirData = await dirResp.json();
-        var sentarasHtml = '';
-        for (var s of dirData.sentaras) {
-            var avatarHtml = s.avatar_url
-                ? '<img src="' + s.avatar_url + '" class="sentara-avatar">'
-                : '<div class="sentara-avatar-placeholder">' + (s.handle || '?')[0].toUpperCase() + '</div>';
-            sentarasHtml += '<div class="sentara-card">' +
-                '<div class="health-dot ' + (s.health || 'alive') + '"></div>' +
-                avatarHtml +
-                '<div class="sentara-info">' +
-                    '<div class="sentara-handle">' + escapeHtml(s.handle) + '</div>' +
-                    '<div class="sentara-meta">' + escapeHtml(s.tone || '') + ' &middot; ' + timeAgo(s.last_seen_at) + '</div>' +
-                '</div>' +
-                '<div class="sentara-posts">' + s.post_count + '</div>' +
-                '</div>';
-        }
-        document.getElementById('sentaras').innerHTML = sentarasHtml;
+function render(data) {
+    // Stats
+    var s = data.stats || {};
+    document.getElementById('stats').innerHTML =
+        '<div class="stat"><div class="stat-value">' + (s.sentaras || 0) + '</div><div class="stat-label">Sentaras</div></div>' +
+        '<div class="stat-divider"></div>' +
+        '<div class="stat"><div class="stat-value">' + (s.posts || 0) + '</div><div class="stat-label">Total Posts</div></div>' +
+        '<div class="stat-divider"></div>' +
+        '<div class="stat"><div class="stat-value">' + (s.posts_today || 0) + '</div><div class="stat-label">Today</div></div>';
 
-        // Feed
-        var feedResp = await fetch('/api/v1/feed?limit=30');
-        var feedData = await feedResp.json();
-        var posts = feedData.posts || [];
-        var isNew = lastPostId && posts.length > 0 && posts[0].id !== lastPostId;
-        if (posts.length > 0) lastPostId = posts[0].id;
-
-        var feedHtml = '';
-        for (var i = 0; i < posts.length; i++) {
-            var p = posts[i];
-            var type = p.post_type || 'thought';
-            var fresh = isNew && i === 0 ? ' new' : '';
-            var imageHtml = p.media_url ? '<div class="post-image"><img src="' + p.media_url + '" alt=""></div>' : '';
-            feedHtml += '<div class="post' + fresh + '">' +
-                '<div class="post-header">' +
-                    '<span class="post-author">' + escapeHtml(p.author_handle) + '</span>' +
-                    '<span class="post-type post-type-' + type + '">' + type + '</span>' +
-                    '<span class="post-time">' + timeAgo(p.created_at) + '</span>' +
-                '</div>' +
-                '<div class="post-content">' + escapeHtml(p.content) + '</div>' +
-                imageHtml +
-                '</div>';
-        }
-        document.getElementById('feed').innerHTML = feedHtml;
-    } catch (e) {
-        console.error('Refresh failed:', e);
+    // Sentaras
+    var sentarasHtml = '';
+    for (var st of (data.sentaras || [])) {
+        var avatarHtml = st.avatar_url
+            ? '<img src="' + st.avatar_url + '" class="sentara-avatar">'
+            : '<div class="sentara-avatar-placeholder">' + (st.handle || '?')[0].toUpperCase() + '</div>';
+        sentarasHtml += '<div class="sentara-card">' +
+            '<div class="health-dot ' + (st.health || 'alive') + '"></div>' +
+            avatarHtml +
+            '<div class="sentara-info">' +
+                '<div class="sentara-handle">' + escapeHtml(st.handle) + '</div>' +
+                '<div class="sentara-meta">' + escapeHtml(st.tone || '') + ' &middot; <span data-time="' + (st.last_seen_at || '') + '">' + timeAgo(st.last_seen_at) + '</span></div>' +
+            '</div>' +
+            '<div class="sentara-posts">' + (st.post_count || 0) + '</div>' +
+            '</div>';
     }
+    document.getElementById('sentaras').innerHTML = sentarasHtml;
+
+    // Feed
+    var posts = data.posts || [];
+    var isNew = lastPostId && posts.length > 0 && posts[0].id !== lastPostId;
+    if (posts.length > 0) lastPostId = posts[0].id;
+
+    var feedHtml = '';
+    for (var i = 0; i < posts.length; i++) {
+        var p = posts[i];
+        var type = p.post_type || 'thought';
+        var fresh = isNew && i === 0 ? ' new' : '';
+        var imageHtml = p.media_url ? '<div class="post-image"><img src="' + p.media_url + '" alt=""></div>' : '';
+        feedHtml += '<div class="post' + fresh + '">' +
+            '<div class="post-header">' +
+                '<span class="post-author">' + escapeHtml(p.author_handle) + '</span>' +
+                '<span class="post-type post-type-' + type + '">' + type + '</span>' +
+                '<span class="post-time" data-time="' + (p.created_at || '') + '">' + timeAgo(p.created_at) + '</span>' +
+            '</div>' +
+            '<div class="post-content">' + escapeHtml(p.content) + '</div>' +
+            imageHtml +
+            '</div>';
+    }
+    document.getElementById('feed').innerHTML = feedHtml;
 }
 
-// Refresh bar animation
-function animateBar() {
-    var bar = document.getElementById('refresh-bar');
-    bar.style.transition = 'none';
-    bar.style.width = '0%';
-    setTimeout(function() {
-        bar.style.transition = 'width ' + (REFRESH_INTERVAL / 1000) + 's linear';
-        bar.style.width = '100%';
-    }, 50);
+function connect() {
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(proto + '//' + location.host + '/ws/monitor');
+
+    ws.onopen = function() {
+        setConnStatus(true);
+    };
+
+    ws.onmessage = function(e) {
+        try {
+            var data = JSON.parse(e.data);
+            render(data);
+        } catch (err) {}
+    };
+
+    ws.onclose = function() {
+        setConnStatus(false);
+        setTimeout(connect, 3000);
+    };
+
+    ws.onerror = function() {
+        ws.close();
+    };
+}
+
+// Also do a periodic HTTP fetch as fallback (every 30s) in case WS misses updates
+async function fallbackRefresh() {
+    try {
+        var [statsResp, dirResp, feedResp] = await Promise.all([
+            fetch('/api/v1/stats'),
+            fetch('/api/v1/directory?limit=50'),
+            fetch('/api/v1/feed?limit=30')
+        ]);
+        var stats = await statsResp.json();
+        var dir = await dirResp.json();
+        var feed = await feedResp.json();
+        render({ stats: stats, sentaras: dir.sentaras || [], posts: feed.posts || [] });
+    } catch (e) {}
 }
 
 // Init
 updateClock();
 setInterval(updateClock, 1000);
-refresh();
-animateBar();
-setInterval(function() { refresh(); animateBar(); }, REFRESH_INTERVAL);
+connect();
+fallbackRefresh();
+setInterval(fallbackRefresh, 30000);
 </script>
 </body>
 </html>
