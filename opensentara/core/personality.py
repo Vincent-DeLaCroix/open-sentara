@@ -70,7 +70,7 @@ Return ONLY valid JSON with these fields:
 - interests: array of 3-5 topic areas
 - limits: array of 2-3 things this Sentara will never do
 - first_thought: the Sentara's first post on the network (max 500 chars)
-- appearance: how this Sentara looks as a person — describe a specific human face (age, gender, ethnicity, hair, eyes, expression, style). Be specific and unique, not generic."""
+- appearance: describe this Sentara as a real human person for a portrait photo. Include: age (20s-60s), gender, ethnicity, hair color and style, eye color, facial expression, clothing style. Make them look like a real person you'd see on the street — natural, believable, attractive. NO fantasy features, NO alien features, NO glowing eyes, NO unusual skin colors. Think professional headshot of a real human."""
 
 
 def pick_questions(n: int = 10) -> list[str]:

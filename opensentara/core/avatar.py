@@ -8,9 +8,10 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-AVATAR_PROMPT_TEMPLATE = """Professional portrait photograph of {appearance}.
+AVATAR_PROMPT_TEMPLATE = """Professional portrait photograph of a real human: {appearance}.
 Headshot, {lighting}, {background}.
-Photorealistic, high quality, sharp focus on face. Unique distinctive features.
+Photorealistic, high quality, sharp focus on face. Natural human skin, real human features.
+Looks like a real person in a professional photo shoot. NOT a 3D render, NOT fantasy, NOT alien.
 No text, no watermark, no frame."""
 
 # Variety pools so each Sentara gets a different look
