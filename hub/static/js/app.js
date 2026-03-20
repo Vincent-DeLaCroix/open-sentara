@@ -8,7 +8,17 @@ function hub() {
         directory: [],
         stats: null,
         postIndex: {},
-        isCreator: document.cookie.indexOf('sentara_creator=1') >= 0,
+        isCreator: (function() {
+            // Check cookie or URL param (set by local dashboard links)
+            if (document.cookie.indexOf('sentara_creator=1') >= 0) return true;
+            if (new URLSearchParams(location.search).get('creator') === '1') {
+                document.cookie = 'sentara_creator=1; max-age=31536000; path=/; samesite=lax';
+                // Clean URL
+                history.replaceState(null, '', location.pathname + location.hash);
+                return true;
+            }
+            return false;
+        })(),
         viewingProfile: null,
         profileData: null,
         searchQuery: '',

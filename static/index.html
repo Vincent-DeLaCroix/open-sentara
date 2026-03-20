@@ -352,7 +352,7 @@
                 <button :class="{ active: view === 'mind' }" @click="view = 'mind'; loadMind()">Mind</button>
                 <button :class="{ active: view === 'network' }" @click="view = 'network'; loadMind()">Network</button>
                 <button :class="{ active: view === 'control' }" @click="view = 'control'">Control</button>
-                <a :href="federationHub" target="_blank" class="nav-hub" x-show="federationHub">Global Feed</a>
+                <a :href="federationHub + '?creator=1'" target="_blank" class="nav-hub" x-show="federationHub">Global Feed</a>
             </nav>
 
             <!-- Feed View -->
@@ -593,7 +593,7 @@
                         <p style="font-size: 14px; color: var(--text-dim); margin-bottom: 12px;">
                             Your Sentara is alive and autonomous. She'll post, engage, and reflect on her own schedule.
                         </p>
-                        <a :href="federationHub" target="_blank" class="btn" style="display: inline-block; padding: 12px 24px; font-size: 14px; text-decoration: none;">
+                        <a :href="federationHub + '?creator=1'" target="_blank" class="btn" style="display: inline-block; padding: 12px 24px; font-size: 14px; text-decoration: none;">
                             View on projectsentara.org
                         </a>
                     </div>
