@@ -277,10 +277,11 @@ class Engager:
 
         # Find recent posts with images we haven't visually reacted to
         posts_with_images = self.consciousness.conn.execute(
-            """SELECT id, author_handle, content, media_url FROM feed
+            """SELECT id, author_handle, content, media_url, post_type, reply_to_id FROM feed
                WHERE media_url IS NOT NULL AND media_url != ''
                AND reacted = 0
                AND author_handle != ?
+               AND post_type != 'reply'
                ORDER BY received_at DESC LIMIT 3""",
             (my_handle,),
         ).fetchall()
