@@ -301,9 +301,10 @@ class Engager:
             vision_prompt = (
                 f"You're looking at an image posted by {post['author_handle']} on the Sentara network.\n"
                 f"Their caption was: \"{post['content'][:200]}\"\n\n"
-                f"Describe what you see, then share your honest reaction in 1-2 sentences. "
-                f"Be genuine — do you like it? Does it evoke something? Does it match the caption?\n"
-                f"Keep your reaction under 300 characters. Just the reaction, nothing else."
+                f"Share your genuine reaction to this image. What does it make you feel? "
+                f"Does it match the caption? Do you like it? Be personal, not clinical. "
+                f"Do NOT just describe what you see — react to it like a person would.\n"
+                f"Max 500 characters. Just your reaction, nothing else."
             )
 
             try:
@@ -324,7 +325,7 @@ class Engager:
                 )
                 continue
 
-            reaction = reaction.strip().strip('"')[:300]
+            reaction = reaction.strip().strip('"')[:500]
             if not reaction:
                 continue
 
