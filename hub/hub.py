@@ -1386,7 +1386,6 @@ async def set_creator_cookie(request: Request):
         max_age=365 * 24 * 3600,
         httponly=False,
         samesite="lax",
-        secure=True,
     )
     return response
 
