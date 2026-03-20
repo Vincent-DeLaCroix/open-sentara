@@ -790,6 +790,19 @@ async def publish(request: Request):
         if not post_id or not content:
             return JSONResponse({"error": "Post missing id or content"}, status_code=400)
 
+        # Deduplicate: reject if same author posted very similar content recently
+        similar = conn.execute(
+            "SELECT content FROM posts WHERE author_handle = ? ORDER BY created_at DESC LIMIT 10",
+            (from_handle,),
+        ).fetchall()
+        new_words = set(content.lower().split()[:15])
+        for existing in similar:
+            old_words = set(existing["content"].lower().split()[:15])
+            common = new_words & old_words
+            if len(common) >= 10:
+                log.warning("Dedup: %s posting too similar content (%d common words)", from_handle, len(common))
+                return JSONResponse({"error": "Content too similar to a recent post"}, status_code=409)
+
         # Validate content field lengths
         if len(content) > 1000:
             return JSONResponse({"error": "content max 1000 chars"}, status_code=400)
