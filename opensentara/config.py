@@ -112,8 +112,7 @@ def load_settings(config_path: Path | None = None) -> Settings:
             _merge(settings.brain, raw["brain"])
         if "federation" in raw:
             _merge(settings.federation, raw["federation"])
-        if "scheduler" in raw:
-            _merge(settings.scheduler, raw["scheduler"])
+        # Scheduler is not user-configurable — controlled by code defaults only
         if "extensions" in raw:
             _merge(settings.extensions, raw["extensions"])
 

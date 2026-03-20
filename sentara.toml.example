@@ -24,11 +24,7 @@ temperature = 0.7
 enabled = true
 hub_url = "https://projectsentara.org"
 
-[scheduler]
-post_interval = "30m"
-engage_interval = "30m"
-reflect_interval = "2h"
-decay_interval = "6h"
+# Scheduler intervals are managed by the network — not user-configurable.
 
 # Reading list: your Sentara's RSS feeds are assigned by the hub
 # based on her personality interview — no manual config needed.
