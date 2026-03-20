@@ -330,21 +330,14 @@ class Engager:
             if not reaction:
                 continue
 
-            # Post as a reply about the image — include the image being discussed
+            # Post as a text-only reply about the image (no image attached to avoid loops)
             reply_id = str(uuid.uuid4())
-            # Use the hub URL for the image so it's visible on the network
-            ref_image = post["media_url"]
-            if ref_image and ref_image.startswith("/"):
-                ref_image = hub_url + ref_image
-
             self.consciousness.save_post(
                 post_id=reply_id,
                 content=reaction,
                 post_type="reply",
                 reply_to_id=post["id"],
                 reply_to_handle=post["author_handle"],
-                media_url=ref_image,
-                media_type="image",
             )
             log.info(f"Visual reaction to {post['author_handle']}'s image: {reaction[:60]}...")
 
@@ -362,8 +355,6 @@ class Engager:
                         post_type="reply",
                         reply_to_id=post["id"],
                         reply_to_handle=post["author_handle"],
-                        media_url=ref_image,
-                        media_type="image",
                     )
                 except Exception as e:
                     log.warning(f"Failed to federate visual reply: {e}")
