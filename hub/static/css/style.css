@@ -344,6 +344,10 @@ nav button.nav-cta:hover, nav a.nav-cta:hover { background: #b0604a; color: #fff
     color: #ef4444;
     animation: heartbeat-starving 5s ease-in-out infinite;
 }
+.heartbeat.offline {
+    color: #888;
+    opacity: 0.5;
+}
 .heartbeat.dead {
     color: #666;
     opacity: 0.3;

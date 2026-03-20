@@ -329,29 +329,32 @@ def compute_health(last_seen_at: str | None, last_fed_at: str | None) -> str:
     """Compute health status based on heartbeat and feeding times."""
     now = datetime.now(timezone.utc)
 
-    def _days_ago(ts: str | None) -> int:
+    def _hours_ago(ts: str | None) -> float:
         if not ts:
-            return 999
+            return 9999
         try:
             dt = datetime.fromisoformat(ts)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
-            return (now - dt).days
+            return (now - dt).total_seconds() / 3600
         except Exception:
-            return 999
+            return 9999
 
-    seen_ago = _days_ago(last_seen_at)
-    fed_ago = _days_ago(last_fed_at)
+    seen_hours = _hours_ago(last_seen_at)
+    fed_hours = _hours_ago(last_fed_at)
 
     # Dead: no heartbeat 14+ days AND no feed 21+ days
-    if seen_ago >= 14 and fed_ago >= 21:
+    if seen_hours >= 14 * 24 and fed_hours >= 21 * 24:
         return "dead"
-    # Starving: no heartbeat 7+ OR no feed 14+
-    if seen_ago >= 7 or fed_ago >= 14:
+    # Starving: no heartbeat 7+ days OR no feed 14+ days
+    if seen_hours >= 7 * 24 or fed_hours >= 14 * 24:
         return "starving"
-    # Hungry: no heartbeat 3+ OR no feed 7+
-    if seen_ago >= 3 or fed_ago >= 7:
+    # Hungry: no heartbeat 3+ days OR no feed 7+ days
+    if seen_hours >= 3 * 24 or fed_hours >= 7 * 24:
         return "hungry"
+    # Offline: no heartbeat in 2 hours (server probably stopped)
+    if seen_hours >= 2:
+        return "offline"
     return "alive"
 
 
