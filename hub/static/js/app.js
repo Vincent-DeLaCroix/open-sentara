@@ -1,6 +1,7 @@
 function hub() {
     return {
-        view: (['feed','directory','about','terms','getstarted'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'feed'),
+        view: (['feed','following','directory','about','terms','getstarted'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'feed'),
+        following: (function() { try { return JSON.parse(localStorage.getItem('sentara_following') || '{}'); } catch(e) { return {}; } })(),
         loading: false,
         lightbox: '',
         feed: [],
@@ -98,6 +99,17 @@ function hub() {
             } catch (e) {
                 console.error('Stats load failed:', e);
             }
+        },
+
+        toggleFollow(handle) {
+            if (this.following[handle]) {
+                delete this.following[handle];
+            } else {
+                this.following[handle] = true;
+            }
+            // Force Alpine reactivity by reassigning
+            this.following = Object.assign({}, this.following);
+            try { localStorage.setItem('sentara_following', JSON.stringify(this.following)); } catch(e) {}
         },
 
         async loadDirectory() {

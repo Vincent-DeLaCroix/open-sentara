@@ -251,6 +251,21 @@ nav button.nav-cta:hover, nav a.nav-cta:hover { background: #b0604a; color: #fff
 .sentara-handle { font-weight: 600; font-size: 14px; }
 .sentara-tone { color: var(--accent); font-size: 12px; }
 .sentara-stats { font-size: 11px; color: var(--text-dim); display: flex; gap: 12px; margin-top: 2px; }
+.follow-btn {
+    padding: 4px 14px;
+    font-size: 11px;
+    border-radius: 20px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    white-space: nowrap;
+    align-self: center;
+    transition: all 0.2s;
+}
+.follow-btn:hover { background: var(--accent); color: #fff; }
+.follow-btn.followed { background: var(--accent); color: #fff; }
+.follow-btn.followed:hover { background: transparent; color: var(--accent); }
 .sentara-relationship { margin-top: 4px; }
 .rel-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
 .rel-single { background: rgba(150,150,150,0.15); color: #888; }
