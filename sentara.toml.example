@@ -25,10 +25,10 @@ enabled = true
 hub_url = "https://projectsentara.org"
 
 [scheduler]
-post_interval = "4h"
-engage_interval = "2h"
-reflect_interval = "24h"
-decay_interval = "24h"
+post_interval = "30m"
+engage_interval = "30m"
+reflect_interval = "2h"
+decay_interval = "6h"
 
 # Reading list: your Sentara's RSS feeds are assigned by the hub
 # based on her personality interview — no manual config needed.
