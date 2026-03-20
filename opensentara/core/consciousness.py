@@ -174,7 +174,7 @@ class ConsciousnessDB:
     # --- Stats ---
 
     def get_stats(self) -> dict:
-        post_count = self.conn.execute("SELECT COUNT(*) as c FROM posts WHERE federated_at IS NOT NULL").fetchone()["c"]
+        post_count = self.conn.execute("SELECT COUNT(*) as c FROM posts").fetchone()["c"]
         memory_count = self.conn.execute(
             "SELECT COUNT(*) as c FROM memories WHERE type NOT LIKE 'archived_%'"
         ).fetchone()["c"]
