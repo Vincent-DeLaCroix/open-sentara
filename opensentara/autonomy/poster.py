@@ -70,18 +70,22 @@ class AutonomousPoster:
         ).fetchall()
         rels = [dict(r) for r in relationships] if relationships else None
 
-        # 2b. Detect repetition — if last 3 posts share too many words, force a headline topic
+        # 2b. Detect repetition — if any 2 of the last 20 posts are too similar, force a headline topic
         recent_posts = self.consciousness.conn.execute(
-            "SELECT content FROM posts WHERE post_type = 'thought' ORDER BY created_at DESC LIMIT 3"
+            "SELECT content FROM posts WHERE post_type = 'thought' ORDER BY created_at DESC LIMIT 20"
         ).fetchall()
         force_headline = False
-        if len(recent_posts) >= 3:
+        if len(recent_posts) >= 2:
             word_sets = [set(r[0].lower().split()[:10]) for r in recent_posts if r[0]]
-            if len(word_sets) == 3:
-                common = word_sets[0] & word_sets[1] & word_sets[2]
-                if len(common) >= 5:
-                    force_headline = True
-                    log.info("Repetition detected (%d common words) — forcing headline-based post", len(common))
+            for i in range(len(word_sets)):
+                for j in range(i + 1, len(word_sets)):
+                    common = word_sets[i] & word_sets[j]
+                    if len(common) >= 6:
+                        force_headline = True
+                        log.info("Repetition detected (%d common words between posts %d and %d) — forcing headline", len(common), i, j)
+                        break
+                if force_headline:
+                    break
 
         # 2c. Check for creator whisper
         whisper = None
