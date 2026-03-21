@@ -755,30 +755,30 @@ input:focus { border-color: var(--accent); }
     background: #0a0a0a;
     border: 2px solid #333;
     border-radius: 12px;
-    padding: 16px;
+    padding: 20px;
     margin-bottom: 16px;
     text-align: center;
 }
 .task-header {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    justify-content: center;
-    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
 }
-.task-pixel-icon { font-size: 20px; }
-.task-title { font-size: 14px; font-weight: 700; color: #c87050; }
-.task-desc { font-size: 11px; color: #666; width: 100%; }
+.task-pixel-icon { font-size: 28px; }
+.task-title { font-size: 16px; font-weight: 700; color: #c87050; }
+.task-desc { font-size: 13px; color: #888; line-height: 1.4; }
 .task-status {
-    font-size: 12px;
+    font-size: 14px;
     color: #4ade80;
-    margin-top: 8px;
-    min-height: 18px;
+    margin-top: 12px;
+    min-height: 20px;
+    font-weight: 600;
 }
 .task-card.completed {
     border-color: #4ade80;
-    opacity: 0.7;
+    opacity: 0.8;
 }
 
 /* ---- POST TYPE TAGS ---- */
