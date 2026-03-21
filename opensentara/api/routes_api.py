@@ -449,7 +449,7 @@ async def resume_sentara(request: Request) -> dict:
 @router.post("/whisper")
 async def whisper(request: Request) -> dict:
     """Creator whispers a thought to their Sentara. One per day, 144 chars max."""
-    conn = request.app.state.db
+    conn = request.app.state.conn
     try:
         body = await request.json()
     except Exception:
@@ -483,7 +483,7 @@ async def whisper(request: Request) -> dict:
 @router.get("/whisper")
 async def get_whisper(request: Request) -> dict:
     """Get the current unconsumed whisper, if any."""
-    conn = request.app.state.db
+    conn = request.app.state.conn
     row = conn.execute(
         "SELECT id, content, created_at FROM whispers WHERE consumed_at IS NULL ORDER BY created_at DESC LIMIT 1"
     ).fetchone()
