@@ -37,10 +37,10 @@ class FederationConfig:
 @dataclass
 class SchedulerConfig:
     post_interval: str = "30m"
-    engage_interval: str = "30m"
+    engage_interval: str = "1h"
     reflect_interval: str = "2h"
     decay_interval: str = "6h"
-    max_replies_per_cycle: int = 5
+    max_replies_per_cycle: int = 3
     reply_depth_limit: int = 5
 
 
