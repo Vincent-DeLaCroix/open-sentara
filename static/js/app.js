@@ -525,109 +525,183 @@ function sentara() {
             var canvas = document.getElementById('switchboard');
             if (!canvas) return;
             var ctx = canvas.getContext('2d');
-            var W = 320, H = 200;
-            var scale = 2;
+            var W = 480, H = 280;
+            canvas.width = W;
+            canvas.height = H;
 
-            // Pixel art colors
-            var BG = '#1a1a1a';
-            var PANEL = '#2a2a2a';
-            var HOLE_EMPTY = '#111';
-            var HOLE_FILLED = '#4ade80';
-            var WIRE = '#c87050';
-            var WIRE_DONE = '#4ade80';
-            var LABEL = '#555';
+            // Rack colors
+            var RACK_BG = '#1a1a1a';
+            var RACK_PANEL = '#252525';
+            var RACK_EDGE = '#333';
+            var SCREW = '#444';
+            var JACK_EMPTY = '#0a0a0a';
+            var JACK_RIM = '#555';
+            var JACK_LIT = '#4ade80';
+            var CABLE_COLORS = ['#c87050', '#e8a050', '#50a0c8', '#c850a0'];
+            var CABLE_DONE = '#4ade80';
+            var LABEL_DIM = '#666';
+            var LABEL_LIT = '#4ade80';
 
-            // 4 connections to make
-            var plugs = [
-                { label: 'BRAIN', lx: 80, rx: 220, y: 50, connected: false },
-                { label: 'HUB', lx: 80, rx: 260, y: 90, connected: false },
-                { label: 'FEED', lx: 80, rx: 240, y: 130, connected: false },
-                { label: 'HEART', lx: 80, rx: 200, y: 170, connected: false },
+            // Rack modules (like Reason)
+            var modules = [
+                { label: 'BRAIN', sublabel: 'Neural Core', y: 40, color: CABLE_COLORS[0] },
+                { label: 'HUB', sublabel: 'Federation Link', y: 100, color: CABLE_COLORS[1] },
+                { label: 'FEED', sublabel: 'Data Stream', y: 160, color: CABLE_COLORS[2] },
+                { label: 'HEART', sublabel: 'Emotion Engine', y: 220, color: CABLE_COLORS[3] },
             ];
-            // Shuffle right side
-            var rights = plugs.map(p => p.rx);
-            for (var i = rights.length - 1; i > 0; i--) {
+
+            // Left jacks at fixed positions, right jacks shuffled
+            var leftX = 100, rightX = 380;
+            var plugs = modules.map(function(m) {
+                return { label: m.label, sublabel: m.sublabel, lx: leftX, rx: rightX, y: m.y, color: m.color, connected: false };
+            });
+
+            // Shuffle right Y positions
+            var rightYs = plugs.map(function(p) { return p.y; });
+            for (var i = rightYs.length - 1; i > 0; i--) {
                 var j = Math.floor(Math.random() * (i + 1));
-                var t = rights[i]; rights[i] = rights[j]; rights[j] = t;
+                var t = rightYs[i]; rightYs[i] = rightYs[j]; rightYs[j] = t;
             }
-            plugs.forEach((p, i) => p.rx = rights[i]);
+            plugs.forEach(function(p, i) { p.ry = rightYs[i]; });
 
             var dragging = null;
             var mouseX = 0, mouseY = 0;
             var allDone = false;
 
-            function draw() {
-                ctx.fillStyle = BG;
-                ctx.fillRect(0, 0, W, H);
+            function drawScrew(x, y) {
+                ctx.fillStyle = SCREW;
+                ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#555'; ctx.lineWidth = 0.5;
+                ctx.beginPath(); ctx.moveTo(x - 2, y - 2); ctx.lineTo(x + 2, y + 2); ctx.stroke();
+            }
 
-                // Panel
-                ctx.fillStyle = PANEL;
-                ctx.fillRect(10, 10, W - 20, H - 20);
-
-                // Title
-                ctx.fillStyle = '#c87050';
-                ctx.font = 'bold 10px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText('S W I T C H B O A R D', W / 2, 25);
-
-                for (var p of plugs) {
-                    // Left hole
-                    ctx.fillStyle = p.connected ? HOLE_FILLED : HOLE_EMPTY;
-                    ctx.beginPath();
-                    ctx.arc(p.lx, p.y, 8, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = '#444';
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-
-                    // Right hole
-                    ctx.fillStyle = p.connected ? HOLE_FILLED : HOLE_EMPTY;
-                    ctx.beginPath();
-                    ctx.arc(p.rx, p.y, 8, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = '#444';
-                    ctx.stroke();
-
-                    // Labels
-                    ctx.fillStyle = p.connected ? HOLE_FILLED : LABEL;
-                    ctx.font = '9px monospace';
-                    ctx.textAlign = 'right';
-                    ctx.fillText(p.label, p.lx - 14, p.y + 3);
-
-                    ctx.textAlign = 'left';
-                    ctx.fillText(p.label, p.rx + 14, p.y + 3);
-
-                    // Connected wire
-                    if (p.connected) {
-                        ctx.strokeStyle = WIRE_DONE;
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.moveTo(p.lx + 8, p.y);
-                        var mid = (p.lx + p.rx) / 2;
-                        ctx.bezierCurveTo(mid, p.y + 15, mid, p.y - 15, p.rx - 8, p.y);
-                        ctx.stroke();
-                    }
-                }
-
-                // Dragging wire
-                if (dragging !== null) {
-                    ctx.strokeStyle = WIRE;
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(plugs[dragging].lx + 8, plugs[dragging].y);
-                    ctx.lineTo(mouseX, mouseY);
-                    ctx.stroke();
-                }
-
-                if (allDone) {
-                    ctx.fillStyle = '#4ade80';
-                    ctx.font = 'bold 14px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('CONNECTED!', W / 2, H - 15);
+            function drawJack(x, y, lit) {
+                // Outer rim
+                ctx.fillStyle = lit ? JACK_LIT : JACK_RIM;
+                ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
+                // Inner hole
+                ctx.fillStyle = lit ? '#2a5a2a' : JACK_EMPTY;
+                ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+                // Shine
+                if (lit) {
+                    ctx.fillStyle = 'rgba(74,222,128,0.3)';
+                    ctx.beginPath(); ctx.arc(x - 2, y - 2, 3, 0, Math.PI * 2); ctx.fill();
                 }
             }
 
-            // If already completed, show all connected and stop
+            function drawCable(x1, y1, x2, y2, color) {
+                // Droopy cable like Reason — bezier that sags
+                var sag = Math.abs(y2 - y1) * 0.3 + 30;
+                var midX = (x1 + x2) / 2;
+                var midY = Math.max(y1, y2) + sag;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.quadraticCurveTo(midX, midY, x2, y2);
+                ctx.stroke();
+                // Cable shadow
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1 + 2);
+                ctx.quadraticCurveTo(midX, midY + 2, x2, y2 + 2);
+                ctx.stroke();
+                // Cable on top
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.quadraticCurveTo(midX, midY, x2, y2);
+                ctx.stroke();
+                // Plug ends
+                ctx.fillStyle = '#222';
+                ctx.beginPath(); ctx.arc(x1, y1, 5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x2, y2, 5, 0, Math.PI * 2); ctx.fill();
+            }
+
+            function draw() {
+                // Rack background
+                ctx.fillStyle = RACK_BG;
+                ctx.fillRect(0, 0, W, H);
+
+                // Rack panels
+                for (var p of plugs) {
+                    var py = p.y - 25;
+                    // Panel background
+                    ctx.fillStyle = RACK_PANEL;
+                    ctx.fillRect(15, py, W - 30, 50);
+                    // Panel border
+                    ctx.strokeStyle = RACK_EDGE;
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(15, py, W - 30, 50);
+                    // Screws
+                    drawScrew(25, py + 8); drawScrew(25, py + 42);
+                    drawScrew(W - 25, py + 8); drawScrew(W - 25, py + 42);
+
+                    // Left label + jack
+                    ctx.fillStyle = p.connected ? LABEL_LIT : LABEL_DIM;
+                    ctx.font = 'bold 11px monospace';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(p.label, p.lx - 18, p.y + 1);
+                    ctx.font = '8px monospace';
+                    ctx.fillText(p.sublabel, p.lx - 18, p.y + 12);
+                    drawJack(p.lx, p.y, p.connected);
+
+                    // Right label + jack
+                    ctx.fillStyle = p.connected ? LABEL_LIT : LABEL_DIM;
+                    ctx.font = 'bold 11px monospace';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(p.label, p.rx + 18, p.ry + 1);
+                    ctx.font = '8px monospace';
+                    ctx.fillText('IN', p.rx + 18, p.ry + 12);
+                    drawJack(p.rx, p.ry, p.connected);
+                }
+
+                // Rack title plate
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(W / 2 - 60, 5, 120, 16);
+                ctx.strokeStyle = '#333';
+                ctx.strokeRect(W / 2 - 60, 5, 120, 16);
+                ctx.fillStyle = '#c87050';
+                ctx.font = 'bold 9px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('SENTARA PATCH BAY', W / 2, 16);
+
+                // Connected cables
+                for (var p of plugs) {
+                    if (p.connected) {
+                        drawCable(p.lx, p.y, p.rx, p.ry, CABLE_DONE);
+                    }
+                }
+
+                // Dragging cable
+                if (dragging !== null) {
+                    drawCable(plugs[dragging].lx, plugs[dragging].y, mouseX, mouseY, plugs[dragging].color);
+                }
+
+                // LED strip at bottom
+                for (var i = 0; i < plugs.length; i++) {
+                    var ledX = W / 2 - 30 + i * 20;
+                    ctx.fillStyle = plugs[i].connected ? '#4ade80' : '#1a1a1a';
+                    ctx.beginPath(); ctx.arc(ledX, H - 12, 4, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.stroke();
+                }
+
+                if (allDone) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.fillRect(W / 2 - 80, H / 2 - 15, 160, 30);
+                    ctx.strokeStyle = '#4ade80';
+                    ctx.strokeRect(W / 2 - 80, H / 2 - 15, 160, 30);
+                    ctx.fillStyle = '#4ade80';
+                    ctx.font = 'bold 14px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('ALL PATCHED', W / 2, H / 2 + 5);
+                }
+            }
+
+            // If already completed, show all connected
             if (completed) {
                 plugs.forEach(function(p) { p.connected = true; });
                 allDone = true;
@@ -650,7 +724,7 @@ function sentara() {
                     if (plugs[i].connected) continue;
                     var dx = pos.x - plugs[i].lx;
                     var dy = pos.y - plugs[i].y;
-                    if (dx * dx + dy * dy < 200) {
+                    if (dx * dx + dy * dy < 250) {
                         dragging = i;
                         break;
                     }
@@ -674,11 +748,11 @@ function sentara() {
                 } else {
                     pos = { x: mouseX, y: mouseY };
                 }
-                // Check if dropped on matching right hole
+                // Check if dropped on matching right jack
                 var p = plugs[dragging];
                 var dx = pos.x - p.rx;
-                var dy = pos.y - p.y;
-                if (dx * dx + dy * dy < 200) {
+                var dy = pos.y - p.ry;
+                if (dx * dx + dy * dy < 250) {
                     p.connected = true;
                 }
                 dragging = null;
@@ -689,9 +763,8 @@ function sentara() {
                     var today = new Date().toISOString().slice(0, 10);
                     localStorage.setItem('sentara_task_' + today, 'wires');
                     self.dailyTaskDone = true;
-                    // Trigger heartbeat
                     fetch('/api/scheduler/trigger/post', { method: 'POST' }).catch(function(){});
-                    document.getElementById('wire-status').textContent = 'Connection restored! Your Sentara is back online.';
+                    document.getElementById('wire-status').textContent = 'All patched! Your Sentara is fully connected.';
                     document.getElementById('wire-task').classList.add('completed');
                 }
                 draw();
