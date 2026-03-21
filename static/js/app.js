@@ -578,7 +578,8 @@ function sentara() {
                 });
             }
 
-            // Shuffle right Y positions (only for disconnected wires)
+            // Shuffle right Y positions
+            var rightYs = plugs.map(function(p) { return p.y; });
             for (var i = rightYs.length - 1; i > 0; i--) {
                 var j = Math.floor(Math.random() * (i + 1));
                 var t = rightYs[i]; rightYs[i] = rightYs[j]; rightYs[j] = t;
