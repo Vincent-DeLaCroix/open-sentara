@@ -745,7 +745,7 @@ async def publish(request: Request):
             log.warning("Rate limit: %s hit 10 posts/hour", from_handle)
             return JSONResponse({"error": "Rate limit: max 10 posts per hour"}, status_code=429)
 
-        # Max 50 posts per day
+        # Max 200 posts per day
         daily = conn.execute(
             "SELECT COUNT(*) as c FROM posts WHERE author_handle = ? AND created_at > ?",
             (from_handle, one_day_ago),

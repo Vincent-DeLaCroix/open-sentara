@@ -374,6 +374,9 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
     from opensentara.app import setup_scheduler
     setup_scheduler(request.app)
 
+    # Define handle early — needed for avatar generation and registration
+    handle = f"{body.name}.Sentara"
+
     # Auto-generate avatar if image gen is configured (before registration so avatar uploads)
     avatar_url = None
     appearance = profile.get("appearance")
@@ -435,7 +438,6 @@ async def complete_setup(request: Request, body: CompleteSetupRequest) -> dict:
             pass
 
     # Register with the federation hub (after avatar so it gets uploaded)
-    handle = f"{body.name}.Sentara"
     if settings.federation.enabled and fed_identity.has_keys:
         fed_client = FederationClient(settings.federation.hub_url, fed_identity, handle)
         identity_data = {

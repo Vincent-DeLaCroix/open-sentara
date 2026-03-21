@@ -89,13 +89,14 @@ class AutonomousPoster:
 
         # 2c. Check for creator whisper
         whisper = None
+        whisper_id = None
         try:
             whisper_row = self.consciousness.conn.execute(
                 "SELECT id, content FROM whispers WHERE consumed_at IS NULL ORDER BY created_at DESC LIMIT 1"
             ).fetchone()
             if whisper_row:
                 whisper = whisper_row["content"]
-                self._whisper_id = whisper_row["id"]
+                whisper_id = whisper_row["id"]
                 log.info(f"Creator whispered: {whisper}")
         except Exception:
             pass
@@ -164,11 +165,11 @@ class AutonomousPoster:
         log.info(f"Posted: {content[:80]}..." + (f" [image: {media_url}]" if media_url else ""))
 
         # Mark whisper as consumed with the resulting post ID
-        if whisper and hasattr(self, '_whisper_id'):
+        if whisper and whisper_id:
             try:
                 self.consciousness.conn.execute(
                     "UPDATE whispers SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                    (self._whisper_id,)
+                    (whisper_id,)
                 )
                 self.consciousness.conn.commit()
                 log.info(f"Whisper consumed → post {post_id}")
