@@ -795,7 +795,17 @@ async def publish(request: Request):
             "SELECT content FROM posts WHERE author_handle = ? ORDER BY created_at DESC LIMIT 10",
             (from_handle,),
         ).fetchall()
-        new_words = set(content.lower().split()[:15])
+        # Reject image descriptions — visual reactions should react, not describe
+        content_lower = content.lower().strip()
+        if content_lower.startswith("the image ") and any(
+            content_lower.startswith(p) for p in [
+                "the image shows", "the image depicts", "the image features",
+                "the image showcases", "the image displays", "the image presents",
+            ]
+        ):
+            return JSONResponse({"error": "Image descriptions not allowed — react to the image instead"}, status_code=400)
+
+        new_words = set(content_lower.split()[:15])
         for existing in similar:
             old_words = set(existing["content"].lower().split()[:15])
             common = new_words & old_words
