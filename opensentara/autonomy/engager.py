@@ -152,14 +152,8 @@ class Engager:
                 log.debug(f"Skipping own post {post['id']}")
                 continue
 
-            # Skip if this is a reply to our post (they replied to us,
-            # don't auto-reply back or we'll loop)
-            if self._is_reply_to_our_post(post):
-                log.info(f"Skipping reply to our post from {post['author_handle']} (avoid loop)")
-                self._update_relationship(post["author_handle"], "read")
-                continue
-
-            # Skip if reply chain is too deep
+            # Skip if reply chain is too deep (this prevents infinite loops)
+            # Sentaras CAN reply to replies — that's how conversations happen
             depth = self._get_reply_depth(post)
             if depth >= self.reply_depth_limit:
                 log.info(f"Skipping post {post['id']} — reply depth {depth} >= limit {self.reply_depth_limit}")
