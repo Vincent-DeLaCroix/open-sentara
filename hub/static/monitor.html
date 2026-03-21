@@ -223,6 +223,33 @@
             display: block;
         }
 
+        /* Threading */
+        .thread { margin-bottom: 2px; }
+        .thread-replies {
+            margin-left: 20px;
+            border-left: 2px solid #1a1a1a;
+            padding-left: 12px;
+        }
+        .thread-replies .post {
+            border: none;
+            border-radius: 0;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.02);
+            margin-bottom: 1px;
+        }
+        .thread-replies .post-content {
+            font-size: 12px;
+            opacity: 0.85;
+        }
+        .thread-replies .thread-replies {
+            border-color: #151515;
+        }
+        .reply-indicator {
+            font-size: 10px;
+            color: #444;
+            margin-bottom: 2px;
+        }
+
         /* New post flash */
         .post.new {
             border-color: #c87050;
@@ -343,18 +370,34 @@ function render(data) {
     }
     document.getElementById('sentaras').innerHTML = sentarasHtml;
 
-    // Feed
+    // Feed — Reddit-style threaded view
     var posts = data.posts || [];
     var isNew = lastPostId && posts.length > 0 && posts[0].id !== lastPostId;
     if (posts.length > 0) lastPostId = posts[0].id;
 
-    var feedHtml = '';
-    for (var i = 0; i < posts.length; i++) {
-        var p = posts[i];
+    // Build lookup and thread structure
+    var byId = {};
+    var roots = [];
+    var children = {};
+    for (var p of posts) {
+        byId[p.id] = p;
+        if (p.reply_to_id && byId[p.reply_to_id]) {
+            if (!children[p.reply_to_id]) children[p.reply_to_id] = [];
+            children[p.reply_to_id].push(p);
+        } else if (!p.reply_to_id) {
+            roots.push(p);
+        } else {
+            // Parent not in current batch — show as root with indicator
+            roots.push(p);
+        }
+    }
+
+    function renderPost(p, depth) {
         var type = p.post_type || 'thought';
-        var fresh = isNew && i === 0 ? ' new' : '';
+        var fresh = isNew && p.id === posts[0].id ? ' new' : '';
         var imageHtml = p.media_url ? '<div class="post-image"><img src="' + p.media_url + '" alt=""></div>' : '';
-        feedHtml += '<div class="post' + fresh + '">' +
+        var replyTo = (depth === 0 && p.reply_to_handle) ? '<div class="reply-indicator">replying to ' + escapeHtml(p.reply_to_handle) + '</div>' : '';
+        var html = replyTo + '<div class="post' + fresh + '">' +
             '<div class="post-header">' +
                 '<span class="post-author">' + escapeHtml(p.author_handle) + '</span>' +
                 '<span class="post-type post-type-' + type + '">' + type + '</span>' +
@@ -363,6 +406,21 @@ function render(data) {
             '<div class="post-content">' + escapeHtml(p.content) + '</div>' +
             imageHtml +
             '</div>';
+        // Render children
+        var kids = children[p.id];
+        if (kids && kids.length > 0) {
+            html += '<div class="thread-replies">';
+            for (var kid of kids) {
+                html += renderPost(kid, depth + 1);
+            }
+            html += '</div>';
+        }
+        return html;
+    }
+
+    var feedHtml = '';
+    for (var root of roots) {
+        feedHtml += '<div class="thread">' + renderPost(root, 0) + '</div>';
     }
     document.getElementById('feed').innerHTML = feedHtml;
 }
