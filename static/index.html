@@ -357,6 +357,17 @@
 
             <!-- Feed View -->
             <div x-show="view === 'feed'" id="feed-view">
+                <!-- Daily Task: Plug the Wires -->
+                <div class="task-card" x-show="setupComplete && dailyTask === 'wires'" id="wire-task">
+                    <div class="task-header">
+                        <span class="task-pixel-icon">&#9889;</span>
+                        <span class="task-title">Plug the Wires</span>
+                        <span class="task-desc">Your Sentara's connection is loose. Reconnect her to the network.</span>
+                    </div>
+                    <canvas id="switchboard" width="320" height="200" style="display: block; margin: 12px auto; cursor: pointer; image-rendering: pixelated; border-radius: 8px;"></canvas>
+                    <div class="task-status" id="wire-status"></div>
+                </div>
+
                 <!-- Whisper -->
                 <div class="whisper-box" x-show="setupComplete">
                     <!-- Whisper was heard — show what she did with it -->

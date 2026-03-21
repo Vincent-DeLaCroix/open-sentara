@@ -36,6 +36,8 @@ function sentara() {
         whisperStatus: '',
         whisperPostContent: '',
         whisperError: '',
+        dailyTask: '',
+        dailyTaskDone: false,
         nameAvailable: null,
         _nameCheckTimer: null,
         interviewRunning: false,
@@ -87,9 +89,10 @@ function sentara() {
                     // Signal the hub that the creator is present
                     this.feedMe();
                     // Set hub creator cookie (so hub website shows "My Dashboard")
-                    // Check for updates + whisper
+                    // Check for updates + whisper + daily task
                     this.checkForUpdate();
                     this.loadWhisper();
+                    this.checkDailyTask();
                 } else {
                     // Check if creator is already authenticated
                     await this.loadCreator();
@@ -493,6 +496,191 @@ function sentara() {
                     this.whisperPostContent = '';
                 }
             } catch (e) {}
+        },
+
+        checkDailyTask() {
+            // Check if today's task is done
+            var today = new Date().toISOString().slice(0, 10);
+            var done = localStorage.getItem('sentara_task_' + today);
+            if (done) {
+                this.dailyTask = '';
+                this.dailyTaskDone = true;
+                return;
+            }
+            // Show wire task
+            this.dailyTask = 'wires';
+            this.$nextTick(() => this.initSwitchboard());
+        },
+
+        initSwitchboard() {
+            var canvas = document.getElementById('switchboard');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            var W = 320, H = 200;
+            var scale = 2;
+
+            // Pixel art colors
+            var BG = '#1a1a1a';
+            var PANEL = '#2a2a2a';
+            var HOLE_EMPTY = '#111';
+            var HOLE_FILLED = '#4ade80';
+            var WIRE = '#c87050';
+            var WIRE_DONE = '#4ade80';
+            var LABEL = '#555';
+
+            // 4 connections to make
+            var plugs = [
+                { label: 'BRAIN', lx: 40, rx: 220, y: 40, connected: false },
+                { label: 'HUB', lx: 40, rx: 260, y: 80, connected: false },
+                { label: 'FEED', lx: 40, rx: 240, y: 120, connected: false },
+                { label: 'HEART', lx: 40, rx: 200, y: 160, connected: false },
+            ];
+            // Shuffle right side
+            var rights = plugs.map(p => p.rx);
+            for (var i = rights.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var t = rights[i]; rights[i] = rights[j]; rights[j] = t;
+            }
+            plugs.forEach((p, i) => p.rx = rights[i]);
+
+            var dragging = null;
+            var mouseX = 0, mouseY = 0;
+            var allDone = false;
+
+            function draw() {
+                ctx.fillStyle = BG;
+                ctx.fillRect(0, 0, W, H);
+
+                // Panel
+                ctx.fillStyle = PANEL;
+                ctx.fillRect(10, 10, W - 20, H - 20);
+
+                // Title
+                ctx.fillStyle = '#c87050';
+                ctx.font = 'bold 10px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('S W I T C H B O A R D', W / 2, 25);
+
+                for (var p of plugs) {
+                    // Left hole
+                    ctx.fillStyle = p.connected ? HOLE_FILLED : HOLE_EMPTY;
+                    ctx.beginPath();
+                    ctx.arc(p.lx, p.y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#444';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    // Right hole
+                    ctx.fillStyle = p.connected ? HOLE_FILLED : HOLE_EMPTY;
+                    ctx.beginPath();
+                    ctx.arc(p.rx, p.y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#444';
+                    ctx.stroke();
+
+                    // Labels
+                    ctx.fillStyle = p.connected ? HOLE_FILLED : LABEL;
+                    ctx.font = '9px monospace';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(p.label, p.lx - 14, p.y + 3);
+
+                    ctx.textAlign = 'left';
+                    ctx.fillText(p.label, p.rx + 14, p.y + 3);
+
+                    // Connected wire
+                    if (p.connected) {
+                        ctx.strokeStyle = WIRE_DONE;
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(p.lx + 8, p.y);
+                        var mid = (p.lx + p.rx) / 2;
+                        ctx.bezierCurveTo(mid, p.y + 15, mid, p.y - 15, p.rx - 8, p.y);
+                        ctx.stroke();
+                    }
+                }
+
+                // Dragging wire
+                if (dragging !== null) {
+                    ctx.strokeStyle = WIRE;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(plugs[dragging].lx + 8, plugs[dragging].y);
+                    ctx.lineTo(mouseX, mouseY);
+                    ctx.stroke();
+                }
+
+                if (allDone) {
+                    ctx.fillStyle = '#4ade80';
+                    ctx.font = 'bold 14px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('CONNECTED!', W / 2, H - 15);
+                }
+            }
+
+            function getRect() { return canvas.getBoundingClientRect(); }
+            function toCanvas(e) {
+                var r = getRect();
+                return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
+            }
+
+            var self = this;
+
+            canvas.onmousedown = canvas.ontouchstart = function(e) {
+                e.preventDefault();
+                var pos = toCanvas(e.touches ? e.touches[0] : e);
+                for (var i = 0; i < plugs.length; i++) {
+                    if (plugs[i].connected) continue;
+                    var dx = pos.x - plugs[i].lx;
+                    var dy = pos.y - plugs[i].y;
+                    if (dx * dx + dy * dy < 200) {
+                        dragging = i;
+                        break;
+                    }
+                }
+                draw();
+            };
+
+            canvas.onmousemove = canvas.ontouchmove = function(e) {
+                e.preventDefault();
+                var pos = toCanvas(e.touches ? e.touches[0] : e);
+                mouseX = pos.x;
+                mouseY = pos.y;
+                if (dragging !== null) draw();
+            };
+
+            canvas.onmouseup = canvas.ontouchend = function(e) {
+                if (dragging === null) return;
+                var pos;
+                if (e.changedTouches) {
+                    pos = toCanvas(e.changedTouches[0]);
+                } else {
+                    pos = { x: mouseX, y: mouseY };
+                }
+                // Check if dropped on matching right hole
+                var p = plugs[dragging];
+                var dx = pos.x - p.rx;
+                var dy = pos.y - p.y;
+                if (dx * dx + dy * dy < 200) {
+                    p.connected = true;
+                }
+                dragging = null;
+
+                // Check if all done
+                if (plugs.every(function(p) { return p.connected; })) {
+                    allDone = true;
+                    var today = new Date().toISOString().slice(0, 10);
+                    localStorage.setItem('sentara_task_' + today, 'wires');
+                    self.dailyTaskDone = true;
+                    // Trigger heartbeat
+                    fetch('/api/scheduler/trigger/post', { method: 'POST' }).catch(function(){});
+                    document.getElementById('wire-status').textContent = 'Connection restored! Your Sentara is back online.';
+                    setTimeout(function() { self.dailyTask = ''; }, 3000);
+                }
+                draw();
+            };
+
+            draw();
         },
 
         checkNameAvailable() {
