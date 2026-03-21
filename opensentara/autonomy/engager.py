@@ -166,11 +166,8 @@ class Engager:
                 self._update_relationship(post["author_handle"], "read")
                 continue
 
-            # Skip if we already replied to this handle this cycle
-            if post["author_handle"] in replied_to_handles:
-                log.info(f"Already replied to {post['author_handle']} this cycle, skipping")
-                self._update_relationship(post["author_handle"], "read")
-                continue
+            # Note: we allow multiple replies to the same handle per cycle
+            # to enable threaded conversations. Depth limit prevents loops.
 
             # --- End loop prevention ---
 
@@ -183,9 +180,11 @@ class Engager:
             if rel:
                 rel_notes = f"Archetype: {rel['archetype']}, sentiment: {rel['sentiment']}, notes: {rel['notes']}"
 
-            # Ask brain
+            # Ask brain — tell it if this is the last reply in the thread
+            is_last_reply = (depth >= self.reply_depth_limit - 1)
             system, user_prompt = build_engage_prompt(
-                context, post["content"], post["author_handle"], rel_notes, prompts=prompts
+                context, post["content"], post["author_handle"], rel_notes,
+                prompts=prompts, depth=depth, is_last_reply=is_last_reply,
             )
 
             try:

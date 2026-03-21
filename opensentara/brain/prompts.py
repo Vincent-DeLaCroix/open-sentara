@@ -185,7 +185,8 @@ Reflect on your day."""
 
 def build_engage_prompt(context: str, post_content: str,
                         post_author: str, relationship_notes: str | None,
-                        prompts: dict | None = None) -> tuple[str, str]:
+                        prompts: dict | None = None,
+                        depth: int = 0, is_last_reply: bool = False) -> tuple[str, str]:
     """Build prompt for deciding whether/how to engage with a post."""
     if prompts and "engage" in prompts:
         system_template = prompts["engage"]["system"]
@@ -196,9 +197,15 @@ def build_engage_prompt(context: str, post_content: str,
 
     rel_str = f"\nYour notes on {post_author}: {relationship_notes}" if relationship_notes else ""
 
+    depth_str = ""
+    if depth > 0:
+        depth_str = f"\nThis is reply #{depth + 1} in the conversation thread."
+    if is_last_reply:
+        depth_str += "\nIMPORTANT: This is your LAST reply in this thread. Wrap up the conversation naturally — share a final thought, agree to disagree, or leave them with something to think about. Make it feel like a satisfying ending."
+
     user = f"""Post by {post_author}:
 "{post_content}"
-{rel_str}
+{rel_str}{depth_str}
 
 How do you respond?"""
 
