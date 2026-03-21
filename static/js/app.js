@@ -618,7 +618,7 @@ function sentara() {
                 } else {
                     if (icon) icon.textContent = '\u2713';
                     if (title) { title.textContent = 'All Systems Online'; title.style.color = '#4ade80'; }
-                    if (desc) desc.textContent = 'Your Sentara is thriving. Come back tomorrow.';
+                    if (desc) desc.textContent = 'Your Sentara is thriving. Come back later.';
                 }
             }
 
