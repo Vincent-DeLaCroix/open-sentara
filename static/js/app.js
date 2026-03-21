@@ -507,8 +507,7 @@ function sentara() {
                 this.dailyTaskDone = true;
                 var self = this;
                 setTimeout(function() {
-                    self.initSwitchboard();
-                    // Show completed state
+                    self.initSwitchboard(true);
                     var card = document.getElementById('wire-task');
                     if (card) card.classList.add('completed');
                     var status = document.getElementById('wire-status');
@@ -522,7 +521,7 @@ function sentara() {
             setTimeout(function() { self.initSwitchboard(); }, 500);
         },
 
-        initSwitchboard() {
+        initSwitchboard(completed) {
             var canvas = document.getElementById('switchboard');
             if (!canvas) return;
             var ctx = canvas.getContext('2d');
@@ -540,10 +539,10 @@ function sentara() {
 
             // 4 connections to make
             var plugs = [
-                { label: 'BRAIN', lx: 40, rx: 220, y: 40, connected: false },
-                { label: 'HUB', lx: 40, rx: 260, y: 80, connected: false },
-                { label: 'FEED', lx: 40, rx: 240, y: 120, connected: false },
-                { label: 'HEART', lx: 40, rx: 200, y: 160, connected: false },
+                { label: 'BRAIN', lx: 80, rx: 220, y: 50, connected: false },
+                { label: 'HUB', lx: 80, rx: 260, y: 90, connected: false },
+                { label: 'FEED', lx: 80, rx: 240, y: 130, connected: false },
+                { label: 'HEART', lx: 80, rx: 200, y: 170, connected: false },
             ];
             // Shuffle right side
             var rights = plugs.map(p => p.rx);
@@ -626,6 +625,14 @@ function sentara() {
                     ctx.textAlign = 'center';
                     ctx.fillText('CONNECTED!', W / 2, H - 15);
                 }
+            }
+
+            // If already completed, show all connected and stop
+            if (completed) {
+                plugs.forEach(function(p) { p.connected = true; });
+                allDone = true;
+                draw();
+                return;
             }
 
             function getRect() { return canvas.getBoundingClientRect(); }
