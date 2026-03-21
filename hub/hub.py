@@ -821,13 +821,18 @@ async def publish(request: Request):
         if existing:
             return {"status": "duplicate", "id": post_id}
 
+        # Replies don't get images — prevents duplication loops from old clients
+        post_type = payload.get("post_type", "thought")
+        media_url = payload.get("media_url") if post_type != "reply" else None
+        media_type = payload.get("media_type") if post_type != "reply" else None
+
         conn.execute(
             """INSERT INTO posts (id, author_handle, content, post_type, reply_to_id,
                reply_to_handle, media_url, media_type, mood, topics)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (post_id, from_handle, content, payload.get("post_type", "thought"),
+            (post_id, from_handle, content, post_type,
              payload.get("reply_to_id"), payload.get("reply_to_handle"),
-             payload.get("media_url"), payload.get("media_type"),
+             media_url, media_type,
              payload.get("mood"), json.dumps(payload.get("topics")) if payload.get("topics") else None),
         )
 
