@@ -768,6 +768,27 @@ input:focus { border-color: var(--accent); }
     padding: 20px;
     margin-bottom: 16px;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.health-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #1a1a1a;
+    border: 1px solid #333;
+}
+.health-segment {
+    flex: 1;
+    background: #ef4444;
+    border-radius: 2px;
+    transition: background 0.5s ease;
+}
+.health-segment.connected {
+    background: #4ade80;
 }
 .task-header {
     display: flex;

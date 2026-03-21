@@ -144,6 +144,29 @@ def setup_scheduler(app: FastAPI) -> None:
                 pass
         _scheduler.add_job("heartbeat", _heartbeat, "30m")
 
+    # Wire decay — disconnect one random wire every 6 hours
+    async def _wire_decay():
+        try:
+            import random as _rnd
+            conn = app.state.conn
+            connected = conn.execute(
+                "SELECT wire FROM wire_state WHERE connected = 1"
+            ).fetchall()
+            if connected:
+                victim = _rnd.choice(connected)["wire"]
+                now = __import__('datetime').datetime.now(
+                    __import__('datetime').timezone.utc
+                ).isoformat()
+                conn.execute(
+                    "UPDATE wire_state SET connected = 0, disconnected_at = ? WHERE wire = ?",
+                    (now, victim),
+                )
+                conn.commit()
+                log.info(f"Wire decay: {victim} disconnected")
+        except Exception:
+            pass
+    _scheduler.add_job("wire_decay", _wire_decay, "6h")
+
     _scheduler.start()
     app.state.scheduler = _scheduler
 

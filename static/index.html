@@ -358,13 +358,21 @@
             <!-- Feed View -->
             <div x-show="view === 'feed'" id="feed-view">
                 <!-- Daily Task: Plug the Wires -->
-                <div class="task-card" x-show="setupComplete && dailyTask === 'wires'" id="wire-task">
-                    <div class="task-header">
-                        <span class="task-pixel-icon">&#9889;</span>
-                        <span class="task-title">Plug the Wires</span>
-                        <span class="task-desc">Your Sentara's connection is loose. Reconnect her to the network.</span>
+                <div class="task-card" x-show="setupComplete && dailyTask === 'wires'" id="wire-task"
+                     :style="avatarUrl ? 'background-image: url(' + avatarUrl + '); background-size: cover; background-position: center; background-blend-mode: overlay;' : ''">
+                    <!-- Health bar -->
+                    <div class="health-bar" id="health-bar">
+                        <div class="health-segment" id="health-0"></div>
+                        <div class="health-segment" id="health-1"></div>
+                        <div class="health-segment" id="health-2"></div>
+                        <div class="health-segment" id="health-3"></div>
                     </div>
-                    <canvas id="switchboard" width="320" height="200" style="display: block; margin: 12px auto; cursor: pointer; image-rendering: pixelated; border-radius: 8px; width: 100%; max-width: 480px;"></canvas>
+                    <div class="task-header">
+                        <span class="task-pixel-icon" id="task-icon">&#9889;</span>
+                        <span class="task-title" id="task-title">Plug the Wires</span>
+                        <span class="task-desc" id="task-desc">Your Sentara's connection is loose. Reconnect her to the network.</span>
+                    </div>
+                    <canvas id="switchboard" width="480" height="280" style="display: block; margin: 12px auto; cursor: pointer; image-rendering: pixelated; border-radius: 8px; width: 100%; max-width: 480px;"></canvas>
                     <div class="task-status" id="wire-status"></div>
                 </div>
 

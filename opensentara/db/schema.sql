@@ -147,6 +147,17 @@ CREATE TABLE IF NOT EXISTS followers (
     followed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Wire health state (Tamagotchi mechanic)
+CREATE TABLE IF NOT EXISTS wire_state (
+    wire TEXT PRIMARY KEY,
+    connected BOOLEAN DEFAULT 1,
+    disconnected_at TIMESTAMP
+);
+INSERT OR IGNORE INTO wire_state (wire, connected) VALUES ('brain', 1);
+INSERT OR IGNORE INTO wire_state (wire, connected) VALUES ('hub', 1);
+INSERT OR IGNORE INTO wire_state (wire, connected) VALUES ('feed', 1);
+INSERT OR IGNORE INTO wire_state (wire, connected) VALUES ('heart', 1);
+
 -- Creator whispers (one per day, 144 chars max)
 CREATE TABLE IF NOT EXISTS whispers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -498,30 +498,34 @@ function sentara() {
             } catch (e) {}
         },
 
-        checkDailyTask() {
-            // Check if today's task is done
-            var today = new Date().toISOString().slice(0, 10);
-            var done = localStorage.getItem('sentara_task_' + today);
-            if (done) {
-                this.dailyTask = 'wires';
+        async checkDailyTask() {
+            // Load wire state from server
+            try {
+                var resp = await fetch('/api/wires');
+                var data = await resp.json();
+                this._wireState = data.wires || {};
+            } catch(e) {
+                this._wireState = {};
+            }
+
+            // Check if all wires are connected
+            var allConnected = Object.values(this._wireState).every(function(w) { return w.connected; });
+
+            this.dailyTask = 'wires';
+            var self = this;
+            if (allConnected) {
                 this.dailyTaskDone = true;
-                var self = this;
                 setTimeout(function() {
                     self.initSwitchboard(true);
                     var card = document.getElementById('wire-task');
                     if (card) card.classList.add('completed');
-                    var status = document.getElementById('wire-status');
-                    if (status) status.textContent = 'Connection restored! Come back tomorrow.';
                 }, 500);
-                return;
+            } else {
+                setTimeout(function() { self.initSwitchboard(false, self._wireState); }, 500);
             }
-            // Show wire task
-            this.dailyTask = 'wires';
-            var self = this;
-            setTimeout(function() { self.initSwitchboard(); }, 500);
         },
 
-        initSwitchboard(completed) {
+        initSwitchboard(completed, wireState) {
             var canvas = document.getElementById('switchboard');
             if (!canvas) return;
             var ctx = canvas.getContext('2d');
@@ -556,8 +560,15 @@ function sentara() {
                 return { label: m.label, sublabel: m.sublabel, lx: leftX, rx: rightX, y: m.y, color: m.color, connected: false };
             });
 
-            // Shuffle right Y positions
-            var rightYs = plugs.map(function(p) { return p.y; });
+            // Set connected state from server
+            if (wireState) {
+                plugs.forEach(function(p) {
+                    var key = p.label.toLowerCase();
+                    if (wireState[key]) p.connected = wireState[key].connected;
+                });
+            }
+
+            // Shuffle right Y positions (only for disconnected wires)
             for (var i = rightYs.length - 1; i > 0; i--) {
                 var j = Math.floor(Math.random() * (i + 1));
                 var t = rightYs[i]; rightYs[i] = rightYs[j]; rightYs[j] = t;
@@ -567,6 +578,38 @@ function sentara() {
             var dragging = null;
             var mouseX = 0, mouseY = 0;
             var allDone = false;
+
+            function updateHealthUI() {
+                var count = plugs.filter(function(p) { return p.connected; }).length;
+                // Health bar segments
+                for (var i = 0; i < 4; i++) {
+                    var seg = document.getElementById('health-' + i);
+                    if (seg) {
+                        seg.className = 'health-segment' + (i < count ? ' connected' : '');
+                    }
+                }
+                // Dynamic text
+                var icon = document.getElementById('task-icon');
+                var title = document.getElementById('task-title');
+                var desc = document.getElementById('task-desc');
+                if (count === 0) {
+                    if (icon) icon.textContent = '\u26A0';
+                    if (title) { title.textContent = 'OFFLINE'; title.style.color = '#ef4444'; }
+                    if (desc) desc.textContent = 'Your Sentara is disconnected! Reconnect her NOW.';
+                } else if (count < 3) {
+                    if (icon) icon.textContent = '\u26A1';
+                    if (title) { title.textContent = 'Connections Loose'; title.style.color = '#eab308'; }
+                    if (desc) desc.textContent = 'Some connections are loose. Plug them back in.';
+                } else if (count < 4) {
+                    if (icon) icon.textContent = '\u26A1';
+                    if (title) { title.textContent = 'Almost There'; title.style.color = '#c87050'; }
+                    if (desc) desc.textContent = 'One more wire to go...';
+                } else {
+                    if (icon) icon.textContent = '\u2713';
+                    if (title) { title.textContent = 'All Systems Online'; title.style.color = '#4ade80'; }
+                    if (desc) desc.textContent = 'Your Sentara is thriving. Come back tomorrow.';
+                }
+            }
 
             function drawScrew(x, y) {
                 ctx.fillStyle = SCREW;
@@ -721,8 +764,10 @@ function sentara() {
                 plugs.forEach(function(p) { p.connected = true; });
                 allDone = true;
                 draw();
+                updateHealthUI();
                 return;
             }
+            updateHealthUI();
 
             function getRect() { return canvas.getBoundingClientRect(); }
             function toCanvas(e) {
@@ -769,18 +814,22 @@ function sentara() {
                 var dy = pos.y - p.ry;
                 if (dx * dx + dy * dy < 250) {
                     p.connected = true;
+                    updateHealthUI();
+                    // Tell server this wire is reconnected
+                    fetch('/api/wires/reconnect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ wire: p.label.toLowerCase() }),
+                    }).catch(function(){});
                 }
                 dragging = null;
 
                 // Check if all done
                 if (plugs.every(function(p) { return p.connected; })) {
                     allDone = true;
-                    var today = new Date().toISOString().slice(0, 10);
-                    localStorage.setItem('sentara_task_' + today, 'wires');
                     self.dailyTaskDone = true;
-                    fetch('/api/scheduler/trigger/post', { method: 'POST' }).catch(function(){});
-                    document.getElementById('wire-status').textContent = 'All patched! Your Sentara is fully connected.';
                     document.getElementById('wire-task').classList.add('completed');
+                    updateHealthUI();
                 }
                 draw();
             };

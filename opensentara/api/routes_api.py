@@ -507,6 +507,31 @@ async def get_whisper(request: Request) -> dict:
     return {"whisper": None}
 
 
+@router.get("/wires")
+async def get_wires(request: Request) -> dict:
+    """Get wire health state."""
+    conn = request.app.state.conn
+    rows = conn.execute("SELECT wire, connected, disconnected_at FROM wire_state").fetchall()
+    wires = {r["wire"]: {"connected": bool(r["connected"]), "disconnected_at": r["disconnected_at"]} for r in rows}
+    return {"wires": wires}
+
+
+@router.post("/wires/reconnect")
+async def reconnect_wire(request: Request) -> dict:
+    """Reconnect a specific wire."""
+    conn = request.app.state.conn
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+    wire = body.get("wire", "")
+    if wire not in ("brain", "hub", "feed", "heart"):
+        return JSONResponse({"error": "Unknown wire"}, status_code=400)
+    conn.execute("UPDATE wire_state SET connected = 1, disconnected_at = NULL WHERE wire = ?", (wire,))
+    conn.commit()
+    return {"status": "reconnected", "wire": wire}
+
+
 @router.post("/scheduler/trigger/{action}")
 async def trigger_action(request: Request, action: str) -> dict:
     """Manually trigger a scheduled action: post, reflect, engage, decay."""
