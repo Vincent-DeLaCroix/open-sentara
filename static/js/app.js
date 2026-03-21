@@ -626,21 +626,34 @@ function sentara() {
                 ctx.fillStyle = RACK_BG;
                 ctx.fillRect(0, 0, W, H);
 
-                // Rack panels
-                for (var p of plugs) {
-                    var py = p.y - 25;
-                    // Panel background
-                    ctx.fillStyle = RACK_PANEL;
-                    ctx.fillRect(15, py, W - 30, 50);
-                    // Panel border
-                    ctx.strokeStyle = RACK_EDGE;
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(15, py, W - 30, 50);
-                    // Screws
-                    drawScrew(25, py + 8); drawScrew(25, py + 42);
-                    drawScrew(W - 25, py + 8); drawScrew(W - 25, py + 42);
+                // Left panel — OUTPUT side
+                ctx.fillStyle = '#202020';
+                ctx.fillRect(15, 25, W / 2 - 30, H - 45);
+                ctx.strokeStyle = RACK_EDGE;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(15, 25, W / 2 - 30, H - 45);
 
-                    // Left label + jack
+                // Right panel — INPUT side
+                ctx.fillStyle = '#202020';
+                ctx.fillRect(W / 2 + 15, 25, W / 2 - 30, H - 45);
+                ctx.strokeStyle = RACK_EDGE;
+                ctx.strokeRect(W / 2 + 15, 25, W / 2 - 30, H - 45);
+
+                // Panel labels
+                ctx.fillStyle = '#444';
+                ctx.font = 'bold 8px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('O U T P U T', W / 4, 38);
+                ctx.fillText('I N P U T', W * 3 / 4, 38);
+
+                // Screws
+                drawScrew(22, 30); drawScrew(22, H - 25);
+                drawScrew(W / 2 - 22, 30); drawScrew(W / 2 - 22, H - 25);
+                drawScrew(W / 2 + 22, 30); drawScrew(W / 2 + 22, H - 25);
+                drawScrew(W - 22, 30); drawScrew(W - 22, H - 25);
+
+                // Left jacks (outputs)
+                for (var p of plugs) {
                     ctx.fillStyle = p.connected ? LABEL_LIT : LABEL_DIM;
                     ctx.font = 'bold 11px monospace';
                     ctx.textAlign = 'right';
@@ -648,15 +661,17 @@ function sentara() {
                     ctx.font = '8px monospace';
                     ctx.fillText(p.sublabel, p.lx - 18, p.y + 12);
                     drawJack(p.lx, p.y, p.connected);
+                }
 
-                    // Right label + jack
-                    ctx.fillStyle = p.connected ? LABEL_LIT : LABEL_DIM;
+                // Right jacks (inputs) — shuffled positions
+                for (var p of plugs) {
+                    drawJack(p.rx, p.ry, p.connected);
+                    ctx.fillStyle = p.connected ? LABEL_LIT : '#999';
                     ctx.font = 'bold 11px monospace';
                     ctx.textAlign = 'left';
                     ctx.fillText(p.label, p.rx + 18, p.ry + 1);
                     ctx.font = '8px monospace';
                     ctx.fillText('IN', p.rx + 18, p.ry + 12);
-                    drawJack(p.rx, p.ry, p.connected);
                 }
 
                 // Rack title plate
