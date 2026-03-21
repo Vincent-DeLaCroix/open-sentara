@@ -747,6 +747,16 @@ input:focus { border-color: var(--accent); }
     margin-bottom: 16px;
 }
 .whisper-icon { font-size: 16px; opacity: 0.6; }
+.whisper-heard {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: #f5c842;
+    color: #1a1a00;
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+}
 .whisper-current { font-size: 13px; color: #c87050; display: flex; align-items: center; gap: 8px; }
 .whisper-waiting { font-size: 11px; color: #666; }
 
