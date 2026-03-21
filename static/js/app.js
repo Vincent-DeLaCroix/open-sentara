@@ -504,34 +504,44 @@ function sentara() {
                 var resp = await fetch('/api/wires');
                 var data = await resp.json();
                 this._wireState = data.wires || {};
+                console.log('WIRE: loaded state', JSON.stringify(this._wireState));
             } catch(e) {
-                this._wireState = {};
+                console.error('WIRE: failed to load', e);
+                this._wireState = { brain: {connected:false}, hub: {connected:false}, feed: {connected:false}, heart: {connected:false} };
             }
 
             // Check if all wires are connected
-            var allConnected = Object.values(this._wireState).every(function(w) { return w.connected; });
+            var vals = Object.values(this._wireState);
+            var allConnected = vals.length > 0 && vals.every(function(w) { return w.connected; });
+            console.log('WIRE: allConnected=', allConnected, 'count=', vals.length);
 
             this.dailyTask = 'wires';
             var self = this;
             if (allConnected) {
                 this.dailyTaskDone = true;
                 setTimeout(function() {
+                    console.log('WIRE: calling initSwitchboard(true)');
                     self.initSwitchboard(true);
                     var card = document.getElementById('wire-task');
                     if (card) card.classList.add('completed');
                 }, 500);
             } else {
-                setTimeout(function() { self.initSwitchboard(false, self._wireState); }, 500);
+                setTimeout(function() {
+                    console.log('WIRE: calling initSwitchboard(false)');
+                    self.initSwitchboard(false, self._wireState);
+                }, 500);
             }
         },
 
         initSwitchboard(completed, wireState) {
             var canvas = document.getElementById('switchboard');
-            if (!canvas) return;
+            if (!canvas) { console.error('WIRE: canvas not found'); return; }
             var ctx = canvas.getContext('2d');
+            if (!ctx) { console.error('WIRE: no canvas context'); return; }
             var W = 480, H = 280;
             canvas.width = W;
             canvas.height = H;
+            console.log('WIRE: init', completed ? 'completed' : 'active', 'canvas', canvas.width, canvas.height);
 
             // Rack colors
             var RACK_BG = '#1a1a1a';
@@ -557,7 +567,7 @@ function sentara() {
             // Left jacks at fixed positions, right jacks shuffled
             var leftX = 100, rightX = 380;
             var plugs = modules.map(function(m) {
-                return { label: m.label, sublabel: m.sublabel, lx: leftX, rx: rightX, y: m.y, color: m.color, connected: false };
+                return { label: m.label, sublabel: m.sublabel, lx: leftX, rx: rightX, y: m.y, ry: m.y, color: m.color, connected: false };
             });
 
             // Set connected state from server
