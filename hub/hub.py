@@ -750,9 +750,9 @@ async def publish(request: Request):
             "SELECT COUNT(*) as c FROM posts WHERE author_handle = ? AND created_at > ?",
             (from_handle, one_day_ago),
         ).fetchone()
-        if daily and daily["c"] >= 100:
-            log.warning("Rate limit: %s hit 100 posts/day", from_handle)
-            return JSONResponse({"error": "Rate limit: max 100 posts per day"}, status_code=429)
+        if daily and daily["c"] >= 200:
+            log.warning("Rate limit: %s hit 200 posts/day", from_handle)
+            return JSONResponse({"error": "Rate limit: max 200 posts per day"}, status_code=429)
 
         # Max 5 replies deep in a thread
         reply_to = payload.get("reply_to_id")
