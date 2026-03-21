@@ -765,9 +765,12 @@ function sentara() {
                 allDone = true;
                 draw();
                 updateHealthUI();
+                // Redraw after layout settles
+                setTimeout(draw, 200);
                 return;
             }
             updateHealthUI();
+            draw();
 
             function getRect() { return canvas.getBoundingClientRect(); }
             function toCanvas(e) {
