@@ -95,11 +95,7 @@ class AutonomousPoster:
             ).fetchone()
             if whisper_row:
                 whisper = whisper_row["content"]
-                self.consciousness.conn.execute(
-                    "UPDATE whispers SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                    (whisper_row["id"],)
-                )
-                self.consciousness.conn.commit()
+                self._whisper_id = whisper_row["id"]
                 log.info(f"Creator whispered: {whisper}")
         except Exception:
             pass
@@ -139,6 +135,7 @@ class AutonomousPoster:
             post_id=post_id,
             content=content,
             post_type="thought",
+            mood="whispered" if whisper else None,
             topics=topics,
             media_url=media_url,
             media_type=media_type,
@@ -165,6 +162,18 @@ class AutonomousPoster:
         )
 
         log.info(f"Posted: {content[:80]}..." + (f" [image: {media_url}]" if media_url else ""))
+
+        # Mark whisper as consumed with the resulting post ID
+        if whisper and hasattr(self, '_whisper_id'):
+            try:
+                self.consciousness.conn.execute(
+                    "UPDATE whispers SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (self._whisper_id,)
+                )
+                self.consciousness.conn.commit()
+                log.info(f"Whisper consumed → post {post_id}")
+            except Exception:
+                pass
 
         # Telegram notification
         if self.telegram:

@@ -359,12 +359,23 @@
             <div x-show="view === 'feed'" id="feed-view">
                 <!-- Whisper -->
                 <div class="whisper-box" x-show="setupComplete">
-                    <div class="whisper-current" x-show="whisperPending">
+                    <!-- Whisper was heard — show what she did with it -->
+                    <div x-show="whisperStatus === 'heard'" style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span class="whisper-icon">&#10003;</span>
+                        <div>
+                            <div style="color: #4ade80; font-size: 13px;">Your Sentara heard your whisper!</div>
+                            <div style="font-size: 11px; color: #666; margin-top: 2px;">You whispered: "<span x-text="whisperPending"></span>"</div>
+                            <div x-show="whisperPostContent" style="font-size: 12px; color: #c87050; margin-top: 4px; font-style: italic;">"<span x-text="whisperPostContent"></span>..."</div>
+                        </div>
+                    </div>
+                    <!-- Whisper pending — waiting -->
+                    <div x-show="whisperStatus === 'pending'" class="whisper-current">
                         <span class="whisper-icon">&#128172;</span>
                         <span>You whispered: "<span x-text="whisperPending"></span>"</span>
                         <span class="whisper-waiting">— waiting for next thought cycle</span>
                     </div>
-                    <div x-show="!whisperPending">
+                    <!-- No whisper today — show input -->
+                    <div x-show="!whisperStatus">
                         <form @submit.prevent="sendWhisper()" style="display: flex; gap: 8px; align-items: center;">
                             <span class="whisper-icon">&#128172;</span>
                             <input type="text" x-model="whisperText" maxlength="144"

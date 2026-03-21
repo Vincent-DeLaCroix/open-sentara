@@ -33,6 +33,8 @@ function sentara() {
         updateUrl: '',
         whisperText: '',
         whisperPending: '',
+        whisperStatus: '',
+        whisperPostContent: '',
         whisperError: '',
         nameAvailable: null,
         _nameCheckTimer: null,
@@ -483,8 +485,12 @@ function sentara() {
                 var data = await resp.json();
                 if (data.whisper) {
                     this.whisperPending = data.whisper.content;
+                    this.whisperStatus = data.whisper.status || 'pending';
+                    this.whisperPostContent = data.whisper.post_content || '';
                 } else {
                     this.whisperPending = '';
+                    this.whisperStatus = '';
+                    this.whisperPostContent = '';
                 }
             } catch (e) {}
         },
@@ -521,6 +527,7 @@ function sentara() {
                 var data = await resp.json();
                 if (resp.ok) {
                     this.whisperPending = this.whisperText;
+                    this.whisperStatus = 'pending';
                     this.whisperText = '';
                 } else {
                     this.whisperError = data.error || 'Failed to whisper.';
@@ -700,6 +707,7 @@ function sentara() {
                 await this.loadFeed();
                 await this.loadStatus();
                 await this.loadHealth();
+                if (this.whisperStatus === 'pending') await this.loadWhisper();
 
                 // Check for new posts
                 if (this.feed.length > oldLen) {

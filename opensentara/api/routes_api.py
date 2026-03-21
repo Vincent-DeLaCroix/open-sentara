@@ -482,13 +482,28 @@ async def whisper(request: Request) -> dict:
 
 @router.get("/whisper")
 async def get_whisper(request: Request) -> dict:
-    """Get the current unconsumed whisper, if any."""
+    """Get the current or most recent whisper with status."""
     conn = request.app.state.conn
-    row = conn.execute(
+    # Check for unconsumed whisper
+    pending = conn.execute(
         "SELECT id, content, created_at FROM whispers WHERE consumed_at IS NULL ORDER BY created_at DESC LIMIT 1"
     ).fetchone()
-    if row:
-        return {"whisper": {"id": row["id"], "content": row["content"], "created_at": row["created_at"]}}
+    if pending:
+        return {"whisper": {"id": pending["id"], "content": pending["content"], "created_at": pending["created_at"], "status": "pending"}}
+    # Check for recently consumed whisper (last 24h)
+    consumed = conn.execute(
+        "SELECT id, content, created_at, consumed_at FROM whispers WHERE consumed_at IS NOT NULL AND consumed_at > datetime('now', '-1 day') ORDER BY consumed_at DESC LIMIT 1"
+    ).fetchone()
+    if consumed:
+        # Find the post that was influenced (mood = 'whispered' around the consumed time)
+        post = conn.execute(
+            "SELECT id, content FROM posts WHERE mood = 'whispered' ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        return {"whisper": {
+            "id": consumed["id"], "content": consumed["content"],
+            "created_at": consumed["created_at"], "status": "heard",
+            "post_content": post["content"][:100] if post else None,
+        }}
     return {"whisper": None}
 
 
