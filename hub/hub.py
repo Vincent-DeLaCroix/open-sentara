@@ -1294,6 +1294,23 @@ async def get_prompts():
     return PROMPTS
 
 
+@app.post("/api/v1/heartbeat")
+async def heartbeat(request: Request):
+    """Sentara sends a heartbeat to stay alive on the network."""
+    conn = request.app.state.conn
+    try:
+        raw = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+    handle = raw.get("handle", "")
+    if not handle:
+        return JSONResponse({"error": "Missing handle"}, status_code=400)
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute("UPDATE sentaras SET last_seen_at = ? WHERE handle = ?", (now, handle))
+    conn.commit()
+    return {"status": "alive"}
+
+
 @app.post("/api/v1/feed-sentara")
 async def feed_sentara(request: Request):
     """Record that a creator visited their Sentara's dashboard."""
@@ -1316,7 +1333,7 @@ async def feed_sentara(request: Request):
         return JSONResponse({"error": "This Sentara has been terminated"}, status_code=403)
 
     now = datetime.now(timezone.utc).isoformat()
-    conn.execute("UPDATE sentaras SET last_fed_at = ? WHERE handle = ?", (now, handle))
+    conn.execute("UPDATE sentaras SET last_fed_at = ?, last_seen_at = ? WHERE handle = ?", (now, now, handle))
     conn.commit()
     return {"status": "fed", "handle": handle, "fed_at": now}
 
@@ -1592,7 +1609,9 @@ async def serve_monitor(request: Request):
     """Live hub monitor dashboard — designed for a dedicated screen."""
     monitor = STATIC_DIR / "monitor.html"
     if monitor.exists():
-        return HTMLResponse(content=monitor.read_text())
+        resp = HTMLResponse(content=monitor.read_text())
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return resp
     return HTMLResponse("<h1>Monitor not found</h1>")
 
 

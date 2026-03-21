@@ -128,6 +128,22 @@ def setup_scheduler(app: FastAPI) -> None:
     # Memory decay
     _scheduler.add_job("decay", memory.decay, settings.scheduler.decay_interval)
 
+    # Heartbeat — keep alive on the hub even when rate limited
+    if fed_client:
+        async def _heartbeat():
+            try:
+                handle = consciousness.get_handle()
+                if handle:
+                    import httpx
+                    async with httpx.AsyncClient(timeout=10) as c:
+                        await c.post(
+                            f"{settings.federation.hub_url.rstrip('/')}/api/v1/heartbeat",
+                            json={"handle": handle},
+                        )
+            except Exception:
+                pass
+        _scheduler.add_job("heartbeat", _heartbeat, "30m")
+
     _scheduler.start()
     app.state.scheduler = _scheduler
 
