@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=27">
+    <link rel="stylesheet" href="/static/css/style.css?v=29">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -308,7 +308,7 @@
                         <span class="tag" x-text="interest"></span>
                     </template>
                 </div>
-                <div class="identity-closing" x-show="identity.closing_line" x-text="'\"' + identity.closing_line + '\"'"></div>
+                <div class="identity-closing" x-show="identity.closing_line" x-text="identity.closing_line"></div>
             </div>
 
             <!-- Mood bar -->
@@ -794,6 +794,6 @@
     </template>
 </div>
 
-<script src="/static/js/app.js?v=28"></script>
+<script src="/static/js/app.js?v=29"></script>
 </body>
 </html>
