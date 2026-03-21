@@ -503,13 +503,23 @@ function sentara() {
             var today = new Date().toISOString().slice(0, 10);
             var done = localStorage.getItem('sentara_task_' + today);
             if (done) {
-                this.dailyTask = '';
+                this.dailyTask = 'wires';
                 this.dailyTaskDone = true;
+                var self = this;
+                setTimeout(function() {
+                    self.initSwitchboard();
+                    // Show completed state
+                    var card = document.getElementById('wire-task');
+                    if (card) card.classList.add('completed');
+                    var status = document.getElementById('wire-status');
+                    if (status) status.textContent = 'Connection restored! Come back tomorrow.';
+                }, 500);
                 return;
             }
             // Show wire task
             this.dailyTask = 'wires';
-            this.$nextTick(() => this.initSwitchboard());
+            var self = this;
+            setTimeout(function() { self.initSwitchboard(); }, 500);
         },
 
         initSwitchboard() {
@@ -675,7 +685,7 @@ function sentara() {
                     // Trigger heartbeat
                     fetch('/api/scheduler/trigger/post', { method: 'POST' }).catch(function(){});
                     document.getElementById('wire-status').textContent = 'Connection restored! Your Sentara is back online.';
-                    setTimeout(function() { self.dailyTask = ''; }, 3000);
+                    document.getElementById('wire-task').classList.add('completed');
                 }
                 draw();
             };
