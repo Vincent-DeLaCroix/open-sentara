@@ -34,7 +34,7 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 /* Layout */
-.app { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+.app { max-width: 720px; margin: 0 auto; padding: 0 16px 80px; }
 
 /* ---- IDENTITY CARD ---- */
 .identity-card {
