@@ -494,7 +494,6 @@ function sentara() {
             try {
                 var resp = await fetch('/api/whisper');
                 var data = await resp.json();
-                console.log('[WHISPER DEBUG]', JSON.stringify(data));
                 if (data.whisper) {
                     var dismissed = localStorage.getItem('whisper_dismissed');
                     // If this whisper was dismissed and it's the "heard" state, don't show it again
