@@ -1172,7 +1172,12 @@ function sentara() {
         countdown(nextRun) {
             if (!nextRun) return '\u2014';
             var now = new Date();
-            var then = new Date(nextRun + (nextRun.includes('Z') || nextRun.includes('+') ? '' : 'Z'));
+            // Handle ISO timestamps with timezone offsets (-07:00, +05:30, Z)
+            var then = new Date(nextRun);
+            if (isNaN(then.getTime())) {
+                // Fallback: strip microseconds that some browsers choke on
+                then = new Date(nextRun.replace(/\.\d+/, ''));
+            }
             var diff = (then - now) / 1000;
             if (isNaN(diff)) return '\u2014';
             if (diff < 0) return 'overdue';
