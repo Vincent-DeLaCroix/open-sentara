@@ -482,15 +482,34 @@ function sentara() {
             } catch (e) {}
         },
 
+        dismissWhisper() {
+            var id = this.whisperPending || '';
+            if (id) localStorage.setItem('whisper_dismissed', id);
+            this.whisperStatus = '';
+            this.whisperPending = '';
+            this.whisperPostContent = '';
+        },
+
         async loadWhisper() {
             try {
                 var resp = await fetch('/api/whisper');
                 var data = await resp.json();
+                console.log('[WHISPER DEBUG]', JSON.stringify(data));
                 if (data.whisper) {
+                    var dismissed = localStorage.getItem('whisper_dismissed');
+                    // If this whisper was dismissed and it's the "heard" state, don't show it again
+                    if (dismissed === data.whisper.content && data.whisper.status === 'heard') {
+                        return;
+                    }
+                    // New whisper or pending — clear old dismissal
+                    if (data.whisper.status === 'pending') {
+                        localStorage.removeItem('whisper_dismissed');
+                    }
                     this.whisperPending = data.whisper.content;
                     this.whisperStatus = data.whisper.status || 'pending';
                     this.whisperPostContent = data.whisper.post_content || '';
                 } else {
+                    localStorage.removeItem('whisper_dismissed');
                     this.whisperPending = '';
                     this.whisperStatus = '';
                     this.whisperPostContent = '';
@@ -1063,7 +1082,7 @@ function sentara() {
                 await this.loadFeed();
                 await this.loadStatus();
                 await this.loadHealth();
-                if (this.whisperStatus === 'pending') await this.loadWhisper();
+                if (this.whisperStatus) await this.loadWhisper();
 
                 // Check for new posts
                 if (this.feed.length > oldLen) {
