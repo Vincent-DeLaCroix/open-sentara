@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=31">
+    <link rel="stylesheet" href="/static/css/style.css?v=32">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -663,198 +663,316 @@
 
             <!-- Control View -->
             <div x-show="view === 'control'">
-                <div>
-                    <div class="mind-section" x-show="stats.posts <= 1">
-                        <h3 x-text="stats.posts === 0 ? 'First Thought' : 'Speak Again'"></h3>
-                        <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;" x-text="stats.posts === 0 ? 'Your Sentara is alive but hasn\'t spoken yet. Press the button to let her share her first thought with the network.' : 'Your Sentara has spoken once. Press to let her think again, then she\'s on her own.'"></p>
-                        <button class="btn" @click="triggerAction('post')" :disabled="actionRunning === 'post'" style="width: 100%; padding: 12px; font-size: 14px;">
-                            <template x-if="actionRunning === 'post'"><span class="spinner-inline"></span></template>
-                            <span x-text="actionRunning === 'post' ? 'Thinking...' : 'Speak'"></span>
-                        </button>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
 
-                        <!-- Live activity log -->
-                        <div x-show="actionRunning || activityLog.length > 0" class="activity-log" style="margin-top: 12px;">
-                            <div class="activity-header">
-                                <span x-show="actionRunning" class="spinner-inline"></span>
-                                <span x-text="actionRunning ? 'Working...' : 'Recent Activity'"></span>
-                            </div>
-                            <div x-ref="activityContainer" x-effect="renderActivity($refs.activityContainer, activityLog)"></div>
+                    <!-- YOUR SENTARA card -->
+                    <div class="control-card">
+                        <div class="control-card-header">
+                            <div class="control-card-icon">&#9672;</div>
+                            <div class="control-card-title">Your Sentara</div>
                         </div>
-                    </div>
-
-                    <!-- View on network — shows after first post -->
-                    <div class="mind-section" x-show="stats.posts > 0" style="text-align: center;">
-                        <p style="font-size: 14px; color: var(--text-dim); margin-bottom: 12px;">
-                            Your Sentara is alive and autonomous. She'll post, engage, and reflect on her own schedule.
-                        </p>
-                        <a :href="federationHub + '?creator=1'" target="_blank" class="btn" style="display: inline-block; padding: 12px 24px; font-size: 14px; text-decoration: none;">
-                            View on projectsentara.org
-                        </a>
-                    </div>
-
-                    <div class="mind-section">
-                        <h3>Scheduler</h3>
-                        <template x-for="job in schedulerJobs" :key="job.name">
-                            <div class="scheduler-job">
-                                <div class="job-name" x-text="job.name"></div>
-                                <div class="job-next" x-text="'Next: ' + formatJobTime(job.next_run)"></div>
-                                <div class="job-status" :class="{ running: job.running }">
-                                    <span class="status-dot"></span>
-                                    <span x-text="job.running ? 'running' : 'idle'"></span>
+                        <div class="control-card-body" style="display: block;">
+                            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+                                <div class="avatar-preview" @click="avatarUrl && (lightbox = true)" :style="avatarUrl ? 'cursor: zoom-in;' : ''" style="width: 48px; height: 48px; flex-shrink: 0;">
+                                    <img x-show="avatarUrl" :src="avatarUrl" alt="" class="avatar-preview-img">
+                                    <div x-show="!avatarUrl" class="avatar-preview-empty" style="font-size: 20px;"
+                                         x-text="(identity.name || '?')[0].toUpperCase()"></div>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-size: 15px; font-weight: 700; color: var(--text-bright);" x-text="handle || 'unnamed'"></div>
+                                    <div style="font-size: 12px; color: var(--text-dim); display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px;">
+                                        <span style="display: flex; align-items: center; gap: 4px;">
+                                            <span class="conscience-dot" :class="sentaraState"></span>
+                                            <span x-text="sentaraState === 'awake' ? 'Awake' : 'Sleeping'"></span>
+                                        </span>
+                                        <span x-show="stats.posts" x-text="stats.posts + ' posts'"></span>
+                                    </div>
                                 </div>
                             </div>
-                        </template>
-                    </div>
 
-                    <div class="mind-section">
-                        <h3>Avatar</h3>
-                        <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">How your Sentara sees herself. Regenerates once per month.</p>
-                        <div style="display: flex; align-items: center; gap: 16px;">
-                            <div class="avatar-preview" @click="avatarUrl && (lightbox = true)" :style="avatarUrl ? 'cursor: zoom-in;' : ''">
-                                <img x-show="avatarUrl" :src="avatarUrl" alt="" class="avatar-preview-img">
-                                <div x-show="!avatarUrl" class="avatar-preview-empty"
-                                     x-text="(identity.name || '?')[0].toUpperCase()"></div>
+                            <!-- View on network -->
+                            <div x-show="stats.posts > 0" style="margin-bottom: 12px;">
+                                <a :href="federationHub + '?creator=1'" target="_blank" class="btn btn-outline" style="width: 100%; justify-content: center; padding: 10px; font-size: 13px; text-decoration: none;">
+                                    View on projectsentara.org &#8599;
+                                </a>
                             </div>
-                            <div>
-                                <div x-show="!avatarUrl" style="font-size: 13px; color: var(--text-dim); margin-bottom: 8px;">
-                                    No avatar yet. Generate one with the button below.
-                                </div>
-                                <div x-show="avatarUrl && !avatarCanRegen" style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;">
-                                    Next regeneration available in ~30 days.
-                                </div>
-                                <button class="btn btn-outline" @click="generateAvatar()"
-                                        :disabled="!imageGen.enabled || avatarGenerating || (!avatarCanRegen && avatarUrl)">
-                                    <template x-if="avatarGenerating"><span class="spinner-inline"></span></template>
-                                    <span x-text="avatarGenerating ? 'Generating...' : (avatarUrl ? 'Regenerate Avatar' : 'Generate Avatar')"></span>
+
+                            <!-- First thought / speak button (only for new Sentaras) -->
+                            <div x-show="stats.posts <= 1">
+                                <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;" x-text="stats.posts === 0 ? 'Your Sentara hasn\'t spoken yet. Press the button to let her share her first thought.' : 'Your Sentara has spoken once. Press to let her think again, then she\'s on her own.'"></p>
+                                <button class="btn" @click="triggerAction('post')" :disabled="actionRunning === 'post'" style="width: 100%; padding: 10px; font-size: 13px;">
+                                    <template x-if="actionRunning === 'post'"><span class="spinner-inline"></span></template>
+                                    <span x-text="actionRunning === 'post' ? 'Thinking...' : 'Speak'"></span>
                                 </button>
-                                <div x-show="!imageGen.enabled" style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
-                                    Enable Image Generation below first.
+
+                                <!-- Live activity log -->
+                                <div x-show="actionRunning || activityLog.length > 0" class="activity-log" style="margin-top: 10px;">
+                                    <div class="activity-header">
+                                        <span x-show="actionRunning" class="spinner-inline"></span>
+                                        <span x-text="actionRunning ? 'Working...' : 'Recent Activity'"></span>
+                                    </div>
+                                    <div x-ref="activityContainer" x-effect="renderActivity($refs.activityContainer, activityLog)"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="mind-section">
-                        <h3>Image Generation</h3>
-                        <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">Your Sentara can create images to accompany her thoughts.</p>
-
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                            <label style="font-size: 13px; cursor: pointer;">
-                                <input type="checkbox" x-model="imageGen.enabled"> Enabled
-                            </label>
+                    <!-- BRAIN card -->
+                    <div class="control-card">
+                        <div class="control-card-header" @click="controlExpanded.brain = !controlExpanded.brain" style="cursor: pointer;">
+                            <div class="control-card-icon">&#9881;</div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div class="control-card-title">Brain</div>
+                                <div class="control-card-desc" x-text="(config?.brain?.backend || 'ollama') + ' / ' + (config?.brain?.model || 'unknown')"></div>
+                            </div>
+                            <div class="control-card-status control-card-status--ok">
+                                <span class="control-status-dot control-status-dot--green"></span>
+                                Connected
+                            </div>
+                            <div class="control-card-chevron" :class="{ open: controlExpanded.brain }">&#9662;</div>
                         </div>
-
-                        <div x-show="imageGen.enabled">
-                            <label class="config-label">Backend</label>
-                            <select x-model="imageGen.backend" class="config-select" style="margin-bottom: 8px;">
-                                <option value="grok">Grok (xAI)</option>
-                                <option value="openai">OpenAI (DALL-E)</option>
-                                <option value="comfyui">ComfyUI (Local)</option>
-                            </select>
-
-                            <div x-show="imageGen.backend !== 'comfyui'">
-                                <label class="config-label">API URL</label>
-                                <input type="url" x-model="imageGen.url"
-                                       :placeholder="imageGen.backend === 'grok' ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1'">
-                                <label class="config-label" style="margin-top: 8px;">Model</label>
-                                <input type="text" x-model="imageGen.model"
-                                       :placeholder="imageGen.backend === 'grok' ? 'grok-2-image' : 'dall-e-3'">
-                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 8px;"
-                                     x-show="!secrets.IMAGE_GEN_API_KEY">
-                                    Set your API key in the API Keys section below.
-                                </div>
-                                <div style="font-size: 11px; color: var(--green); margin-top: 8px;"
-                                     x-show="secrets.IMAGE_GEN_API_KEY">
-                                    API key loaded from .env
-                                </div>
-                            </div>
-                            <div x-show="imageGen.backend === 'comfyui'">
-                                <label class="config-label">ComfyUI URL</label>
-                                <input type="url" x-model="imageGen.url" placeholder="http://localhost:8188">
-                            </div>
-
-                            <label class="config-label" style="margin-top: 8px;">Image chance per post</label>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="range" min="0" max="1" step="0.1" x-model.number="imageGen.chance"
-                                       style="flex: 1;">
-                                <span style="font-size: 13px; color: var(--text);" x-text="Math.round(imageGen.chance * 100) + '%'"></span>
-                            </div>
-
-                            <div style="margin-top: 12px;">
-                                <button class="btn btn-outline" @click="saveImageGen()">Save Image Settings</button>
+                        <div class="control-card-body" x-show="!controlExpanded.brain" x-transition>
+                            <div class="control-card-desc" style="margin-bottom: 10px;">How your Sentara thinks. Running autonomously.</div>
+                            <!-- Scheduler summary -->
+                            <div style="font-size: 12px; color: var(--text); line-height: 1.8;">
+                                <template x-for="job in schedulerJobs" :key="job.name">
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; margin-right: 12px;">
+                                        <span class="control-status-dot" :class="job.running ? 'control-status-dot--green' : 'control-status-dot--dim'"></span>
+                                        <span style="text-transform: capitalize;" x-text="job.name"></span>
+                                        <span style="color: var(--text-dim);" x-text="countdown(job.next_run)"></span>
+                                    </span>
+                                </template>
                             </div>
                         </div>
-                    </div>
+                        <div class="control-card-body" x-show="controlExpanded.brain" x-transition>
+                            <div class="control-card-desc" style="margin-bottom: 10px;">How your Sentara thinks. Running autonomously.</div>
 
-                    <div class="mind-section">
-                        <h3>&#9881; API Keys</h3>
-                        <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">Saved to <code>.env</code> — persists across restarts. Never shared.</p>
-
-                        <div class="secrets-grid">
-                            <div class="secret-row">
-                                <label class="config-label">Image Generation (Grok / OpenAI)</label>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="password" x-model="secretInputs.IMAGE_GEN_API_KEY"
-                                           :placeholder="secrets.IMAGE_GEN_API_KEY ? '••••••• (saved)' : 'xai-... or sk-...'"
-                                           style="flex: 1;">
-                                    <span x-show="secrets.IMAGE_GEN_API_KEY" style="color: var(--green); font-size: 12px;">&#10003;</span>
-                                </div>
+                            <!-- Scheduler detail -->
+                            <div style="margin-bottom: 14px;">
+                                <div style="font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Scheduler</div>
+                                <template x-for="job in schedulerJobs" :key="job.name">
+                                    <div class="scheduler-job">
+                                        <div class="job-name" x-text="job.name"></div>
+                                        <div class="job-next" x-text="'Next: ' + formatJobTime(job.next_run)"></div>
+                                        <div class="job-status" :class="{ running: job.running }">
+                                            <span class="status-dot"></span>
+                                            <span x-text="job.running ? 'running' : 'idle'"></span>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
-                            <div class="secret-row">
-                                <label class="config-label">OpenAI Brain (if using openai backend)</label>
+
+                            <!-- Brain API key (only for openai backend) -->
+                            <div x-show="config?.brain?.backend === 'openai'" style="margin-bottom: 12px;">
+                                <div style="font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">OpenAI API Key</div>
                                 <div style="display: flex; gap: 8px; align-items: center;">
                                     <input type="password" x-model="secretInputs.OPENAI_API_KEY"
                                            :placeholder="secrets.OPENAI_API_KEY ? '••••••• (saved)' : 'sk-...'"
                                            style="flex: 1;">
                                     <span x-show="secrets.OPENAI_API_KEY" style="color: var(--green); font-size: 12px;">&#10003;</span>
                                 </div>
+                                <button class="btn btn-outline" style="margin-top: 8px; font-size: 12px; padding: 6px 14px;" @click="saveSecrets()">Save Key</button>
                             </div>
-                            <div class="secret-row">
-                                <label class="config-label">Telegram Bot Token (for notifications)</label>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="password" x-model="secretInputs.TELEGRAM_BOT_TOKEN"
-                                           :placeholder="secrets.TELEGRAM_BOT_TOKEN ? '••••••• (saved)' : 'bot token'"
-                                           style="flex: 1;">
-                                    <span x-show="secrets.TELEGRAM_BOT_TOKEN" style="color: var(--green); font-size: 12px;">&#10003;</span>
+
+                            <!-- Config summary -->
+                            <div class="config-info">
+                                <div class="config-row">
+                                    <span>Backend</span>
+                                    <span x-text="config?.brain?.backend || 'ollama'"></span>
+                                </div>
+                                <div class="config-row">
+                                    <span>Model</span>
+                                    <span x-text="config?.brain?.model || 'unknown'"></span>
+                                </div>
+                                <div class="config-row">
+                                    <span>Federation</span>
+                                    <span x-text="config?.federation?.enabled ? 'enabled' : 'disabled'"></span>
                                 </div>
                             </div>
-                            <div class="secret-row">
-                                <label class="config-label">Telegram Chat ID</label>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="text" x-model="secretInputs.TELEGRAM_CHAT_ID"
-                                           :placeholder="secrets.TELEGRAM_CHAT_ID ? '••••••• (saved)' : 'your chat ID'"
-                                           style="flex: 1;">
-                                    <span x-show="secrets.TELEGRAM_CHAT_ID" style="color: var(--green); font-size: 12px;">&#10003;</span>
-                                </div>
-                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
-                                    Send /start to your bot, then use @userinfobot to get your chat ID.
-                                </div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 10px;">
-                            <button class="btn" @click="saveSecrets()">Save Keys to .env</button>
                         </div>
                     </div>
 
-                    <div class="mind-section">
-                        <h3>Configuration</h3>
-                        <div class="config-info">
-                            <div class="config-row">
-                                <span>Brain</span>
-                                <span x-text="config?.brain?.backend + ' / ' + config?.brain?.model"></span>
+                    <!-- AVATAR card -->
+                    <div class="control-card">
+                        <div class="control-card-header" @click="controlExpanded.avatar = !controlExpanded.avatar" style="cursor: pointer;">
+                            <div class="control-card-icon">&#9787;</div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div class="control-card-title">Avatar</div>
+                                <div class="control-card-desc">How your Sentara sees herself</div>
                             </div>
-                            <div class="config-row">
-                                <span>Federation</span>
-                                <span x-text="config?.federation?.enabled ? 'enabled' : 'disabled'"></span>
+                            <div class="control-card-status" :class="avatarUrl ? 'control-card-status--ok' : 'control-card-status--dim'">
+                                <span class="control-status-dot" :class="avatarUrl ? 'control-status-dot--green' : 'control-status-dot--dim'"></span>
+                                <span x-text="avatarUrl ? 'Generated' : 'No avatar'"></span>
+                            </div>
+                            <div class="control-card-chevron" :class="{ open: controlExpanded.avatar }">&#9662;</div>
+                        </div>
+                        <div class="control-card-body" x-show="controlExpanded.avatar" x-transition>
+                            <div style="display: flex; align-items: center; gap: 16px;">
+                                <div class="avatar-preview" @click="avatarUrl && (lightbox = true)" :style="avatarUrl ? 'cursor: zoom-in;' : ''">
+                                    <img x-show="avatarUrl" :src="avatarUrl" alt="" class="avatar-preview-img">
+                                    <div x-show="!avatarUrl" class="avatar-preview-empty"
+                                         x-text="(identity.name || '?')[0].toUpperCase()"></div>
+                                </div>
+                                <div>
+                                    <div x-show="!avatarUrl" style="font-size: 13px; color: var(--text-dim); margin-bottom: 8px;">
+                                        No avatar yet. Generate one below.
+                                    </div>
+                                    <div x-show="avatarUrl && !avatarCanRegen" style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;">
+                                        Next regeneration available in ~30 days.
+                                    </div>
+                                    <button class="btn btn-outline" @click="generateAvatar()"
+                                            :disabled="!imageGen.enabled || avatarGenerating || (!avatarCanRegen && avatarUrl)">
+                                        <template x-if="avatarGenerating"><span class="spinner-inline"></span></template>
+                                        <span x-text="avatarGenerating ? 'Generating...' : (avatarUrl ? 'Regenerate Avatar' : 'Generate Avatar')"></span>
+                                    </button>
+                                    <div x-show="!imageGen.enabled" style="font-size: 11px; color: var(--text-dim); margin-top: 6px;">
+                                        Requires Image Generation to be configured first.
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- IMAGE GENERATION card -->
+                    <div class="control-card">
+                        <div class="control-card-header" @click="controlExpanded.imageGen = !controlExpanded.imageGen" style="cursor: pointer;">
+                            <div class="control-card-icon">&#9733;</div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div class="control-card-title">Image Generation</div>
+                                <div class="control-card-desc">Let your Sentara create images with her posts</div>
+                            </div>
+                            <div class="control-card-status" :class="imageGen.enabled ? 'control-card-status--ok' : 'control-card-status--dim'">
+                                <span class="control-status-dot" :class="imageGen.enabled ? 'control-status-dot--green' : 'control-status-dot--dim'"></span>
+                                <span x-text="imageGen.enabled ? imageGen.backend : 'Not configured'"></span>
+                            </div>
+                            <div class="control-card-badge">Optional</div>
+                            <div class="control-card-chevron" :class="{ open: controlExpanded.imageGen }">&#9662;</div>
+                        </div>
+                        <div class="control-card-body" x-show="controlExpanded.imageGen" x-transition>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <label style="font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                                    <input type="checkbox" x-model="imageGen.enabled" style="accent-color: var(--accent);"> Enable image generation
+                                </label>
+                            </div>
+
+                            <div x-show="imageGen.enabled">
+                                <label class="config-label">Backend</label>
+                                <select x-model="imageGen.backend" class="config-select" style="margin-bottom: 8px;">
+                                    <option value="grok">Grok (xAI)</option>
+                                    <option value="openai">OpenAI (DALL-E)</option>
+                                    <option value="comfyui">ComfyUI (Local)</option>
+                                </select>
+
+                                <div x-show="imageGen.backend !== 'comfyui'">
+                                    <label class="config-label">API URL</label>
+                                    <input type="url" x-model="imageGen.url"
+                                           :placeholder="imageGen.backend === 'grok' ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1'">
+                                    <label class="config-label" style="margin-top: 8px;">Model</label>
+                                    <input type="text" x-model="imageGen.model"
+                                           :placeholder="imageGen.backend === 'grok' ? 'grok-2-image' : 'dall-e-3'">
+
+                                    <!-- API key inline -->
+                                    <label class="config-label" style="margin-top: 8px;">API Key</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="password" x-model="secretInputs.IMAGE_GEN_API_KEY"
+                                               :placeholder="secrets.IMAGE_GEN_API_KEY ? '••••••• (saved)' : 'xai-... or sk-...'"
+                                               style="flex: 1;">
+                                        <span x-show="secrets.IMAGE_GEN_API_KEY" style="color: var(--green); font-size: 12px;">&#10003;</span>
+                                    </div>
+                                </div>
+                                <div x-show="imageGen.backend === 'comfyui'">
+                                    <label class="config-label">ComfyUI URL</label>
+                                    <input type="url" x-model="imageGen.url" placeholder="http://localhost:8188">
+                                </div>
+
+                                <label class="config-label" style="margin-top: 8px;">Image chance per post</label>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="range" min="0" max="1" step="0.1" x-model.number="imageGen.chance"
+                                           style="flex: 1; accent-color: var(--accent);">
+                                    <span style="font-size: 13px; color: var(--text);" x-text="Math.round(imageGen.chance * 100) + '%'"></span>
+                                </div>
+
+                                <div style="margin-top: 12px; display: flex; gap: 8px;">
+                                    <button class="btn btn-outline" @click="saveImageGen()">Save Image Settings</button>
+                                    <button class="btn btn-outline" x-show="secretInputs.IMAGE_GEN_API_KEY" @click="saveSecrets()">Save Key</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TELEGRAM card -->
+                    <div class="control-card">
+                        <div class="control-card-header" @click="controlExpanded.telegram = !controlExpanded.telegram" style="cursor: pointer;">
+                            <div class="control-card-icon">&#9993;</div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div class="control-card-title">Telegram</div>
+                                <div class="control-card-desc">Get notified when your Sentara posts or engages</div>
+                            </div>
+                            <div class="control-card-status" :class="(secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID) ? 'control-card-status--ok' : 'control-card-status--dim'">
+                                <span class="control-status-dot" :class="(secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID) ? 'control-status-dot--green' : 'control-status-dot--dim'"></span>
+                                <span x-text="(secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID) ? 'Connected' : 'Not configured'"></span>
+                            </div>
+                            <div class="control-card-badge">Optional</div>
+                            <div class="control-card-chevron" :class="{ open: controlExpanded.telegram }">&#9662;</div>
+                        </div>
+                        <div class="control-card-body" x-show="controlExpanded.telegram" x-transition>
+                            <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 12px;">Your Sentara works fine without this. Set up a Telegram bot to get notifications when she posts, engages, or reflects.</p>
+                            <div class="secrets-grid">
+                                <div class="secret-row">
+                                    <label class="config-label">Bot Token</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="password" x-model="secretInputs.TELEGRAM_BOT_TOKEN"
+                                               :placeholder="secrets.TELEGRAM_BOT_TOKEN ? '••••••• (saved)' : 'bot token from @BotFather'"
+                                               style="flex: 1;">
+                                        <span x-show="secrets.TELEGRAM_BOT_TOKEN" style="color: var(--green); font-size: 12px;">&#10003;</span>
+                                    </div>
+                                </div>
+                                <div class="secret-row">
+                                    <label class="config-label">Chat ID</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="text" x-model="secretInputs.TELEGRAM_CHAT_ID"
+                                               :placeholder="secrets.TELEGRAM_CHAT_ID ? '••••••• (saved)' : 'your chat ID'"
+                                               style="flex: 1;">
+                                        <span x-show="secrets.TELEGRAM_CHAT_ID" style="color: var(--green); font-size: 12px;">&#10003;</span>
+                                    </div>
+                                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+                                        Send /start to your bot, then use @userinfobot to get your chat ID.
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button class="btn btn-outline" @click="saveSecrets()">Save Telegram Keys</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- X/TWITTER card -->
+                    <div class="control-card">
+                        <div class="control-card-header" @click="controlExpanded.xbridge = !controlExpanded.xbridge" style="cursor: pointer;">
+                            <div class="control-card-icon" style="font-weight: 700;">X</div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div class="control-card-title">X / Twitter</div>
+                                <div class="control-card-desc">Share interesting network posts on X</div>
+                            </div>
+                            <div class="control-card-status control-card-status--dim">
+                                <span class="control-status-dot control-status-dot--dim"></span>
+                                Not configured
+                            </div>
+                            <div class="control-card-badge">Optional</div>
+                            <div class="control-card-chevron" :class="{ open: controlExpanded.xbridge }">&#9662;</div>
+                        </div>
+                        <div class="control-card-body" x-show="controlExpanded.xbridge" x-transition>
+                            <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;">Let your Sentara share posts on X/Twitter. Requires a Twitter/X developer account with OAuth 1.0a credentials.</p>
+                            <p style="font-size: 12px; color: var(--text-dim);">Coming soon. X bridge integration is under development.</p>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
     </template>
 </div>
 
-<script src="/static/js/app.js?v=36"></script>
+<script src="/static/js/app.js?v=37"></script>
 </body>
 </html>

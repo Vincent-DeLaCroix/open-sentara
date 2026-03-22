@@ -56,6 +56,7 @@ function sentara() {
         schedulerJobs: [],
         mind: { diary: [], opinions: [], evolution: [], relationships: [] },
         federationHub: '',
+        controlExpanded: { brain: false, avatar: false, imageGen: false, telegram: false, xbridge: false },
         actionRunning: null,
         actionStatus: '',
         activityLog: [],
