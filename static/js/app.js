@@ -67,6 +67,7 @@ function sentara() {
         unreadCount: 0,
         notificationsEnabled: false,
         health: 'alive',
+        _wireState: { brain: {connected:false}, hub: {connected:false}, feed: {connected:false}, heart: {connected:false} },
 
         async init() {
             // Save view to localStorage on change
@@ -93,6 +94,8 @@ function sentara() {
                     this.checkForUpdate();
                     this.loadWhisper();
                     this.checkDailyTask();
+                    this.loadBtopActivity();
+                    this.loadMind();
                 } else {
                     // Check if creator is already authenticated
                     await this.loadCreator();
@@ -1157,6 +1160,90 @@ function sentara() {
                 const arr = JSON.parse(topicsStr);
                 return arr.join(', ');
             } catch { return topicsStr; }
+        },
+
+        // ---- BTOP Monitor helpers ----
+
+        emotionBar(value) {
+            var filled = Math.round((value || 0) * 10);
+            return '\u2588'.repeat(filled) + '\u2591'.repeat(10 - filled);
+        },
+
+        countdown(nextRun) {
+            if (!nextRun) return '\u2014';
+            var now = new Date();
+            var then = new Date(nextRun + (nextRun.includes('Z') || nextRun.includes('+') ? '' : 'Z'));
+            var diff = (then - now) / 1000;
+            if (isNaN(diff)) return '\u2014';
+            if (diff < 0) return 'overdue';
+            if (diff < 60) return 'in ' + Math.floor(diff) + 's';
+            if (diff < 3600) return 'in ' + Math.floor(diff / 60) + 'm';
+            var h = Math.floor(diff / 3600);
+            var m = Math.floor((diff % 3600) / 60);
+            return 'in ' + h + 'h ' + m + 'm';
+        },
+
+        uptimeStr() {
+            if (!this.identity || !this.identity.born) return '\u2014';
+            var born = new Date(this.identity.born);
+            var now = new Date();
+            var diff = (now - born) / 1000;
+            if (isNaN(diff) || diff < 0) return '\u2014';
+            var d = Math.floor(diff / 86400);
+            var h = Math.floor((diff % 86400) / 3600);
+            if (d > 0) return d + 'd ' + h + 'h';
+            var m = Math.floor((diff % 3600) / 60);
+            return h + 'h ' + m + 'm';
+        },
+
+        nextPostCountdown() {
+            var job = (this.schedulerJobs || []).find(function(j) { return j.name === 'post'; });
+            if (!job || !job.next_run) return '';
+            return this.countdown(job.next_run);
+        },
+
+        wireConnected(name) {
+            if (!this._wireState) return false;
+            var w = this._wireState[name];
+            return w && w.connected;
+        },
+
+        btopActivity() {
+            // Prefer activityLog if populated; fall back to deriving from feed
+            if (this.activityLog && this.activityLog.length > 0) {
+                return this.activityLog.slice(0, 8);
+            }
+            // Derive from recent feed posts
+            var items = [];
+            var posts = (this.feed || []).slice(0, 8);
+            for (var i = 0; i < posts.length; i++) {
+                var p = posts[i];
+                var detail = p.post_type === 'reply'
+                    ? 'Replied to ' + (p.author_handle || 'someone')
+                    : 'Posted: "' + (p.content || '').substring(0, 50) + (p.content && p.content.length > 50 ? '...' : '') + '"';
+                items.push({
+                    icon: p.post_type === 'reply' ? '\u2190' : '\u25cf',
+                    detail: detail,
+                    time: p.created_at
+                });
+            }
+            return items;
+        },
+
+        btopTimeShort(dateStr) {
+            if (!dateStr) return '';
+            try {
+                var d = new Date(dateStr + (dateStr.includes('Z') || dateStr.includes('+') ? '' : 'Z'));
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            } catch(e) { return ''; }
+        },
+
+        async loadBtopActivity() {
+            try {
+                var resp = await fetch('/api/activity');
+                var data = await resp.json();
+                this.activityLog = data.activity || [];
+            } catch(e) {}
         },
     };
 }

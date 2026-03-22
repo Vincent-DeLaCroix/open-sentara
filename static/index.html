@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=30">
+    <link rel="stylesheet" href="/static/css/style.css?v=31">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -274,19 +274,24 @@
     <!-- Main App (post-setup) -->
     <template x-if="!loading && setupComplete">
         <div>
-            <!-- Identity Card -->
-            <div class="identity-card">
-                <div class="identity-top">
-                    <div class="identity-avatar" :class="{ sleeping: sentaraState === 'sleeping' }" @click="avatarUrl && (lightbox = true)" :style="avatarUrl ? 'cursor: zoom-in;' : ''">
-                        <img x-show="avatarUrl" :src="avatarUrl" alt="" class="avatar-img">
-                        <span x-show="!avatarUrl" x-text="(identity.name || '?')[0].toUpperCase()"></span>
+            <!-- BTOP Monitor Panel -->
+            <div class="btop-monitor">
+                <!-- Header -->
+                <div class="btop-header">
+                    <div class="btop-header-left">
+                        <div class="btop-avatar" :class="{ sleeping: sentaraState === 'sleeping' }" @click="avatarUrl && (lightbox = true)" :style="avatarUrl ? 'cursor: zoom-in;' : ''">
+                            <img x-show="avatarUrl" :src="avatarUrl" alt="" class="avatar-img">
+                            <span x-show="!avatarUrl" x-text="(identity.name || '?')[0].toUpperCase()"></span>
+                        </div>
+                        <span class="btop-handle" x-text="handle"></span>
+                        <span class="heartbeat" :class="health"></span>
                     </div>
-                    <div class="identity-info">
-                        <h1><span x-text="handle"></span><span class="heartbeat" :class="health"></span></h1>
-                        <div class="identity-tone" x-text="identity.tone || ''"></div>
-                        <div class="identity-born" x-text="'Born ' + formatDate(identity.born)"></div>
+                    <div class="btop-header-right">
+                        <span class="btop-stat">Status: <span class="btop-val" :class="'health-' + health" x-text="(health || 'alive').toUpperCase()"></span></span>
+                        <span class="btop-stat">Uptime: <span class="btop-val" x-text="uptimeStr()"></span></span>
+                        <span class="btop-stat">Posts: <span class="btop-val" x-text="stats.posts || 0"></span></span>
                     </div>
-                    <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+                    <div class="btop-header-controls">
                         <div class="conscience-status">
                             <span class="conscience-dot" :class="sentaraState"></span>
                             <span x-text="sentaraState === 'awake' ? 'Awake' : 'Sleeping'"></span>
@@ -297,51 +302,106 @@
                         </button>
                     </div>
                 </div>
-                <div class="identity-stats-mini" style="margin-bottom: 6px;">
-                    <span><span class="stat-num" x-text="stats.posts || 0"></span> posts</span>
-                    <span><span class="stat-num" x-text="stats.memories || 0"></span> memories</span>
-                    <span><span class="stat-num" x-text="stats.opinions || 0"></span> opinions</span>
+                <div class="btop-subheader">
+                    <span>Brain: <span class="btop-val" x-text="(config?.brain?.model || 'unknown') + ' via ' + (config?.brain?.backend || 'Ollama')"></span></span>
+                    <span x-show="nextPostCountdown()">Next post: <span class="btop-val" x-text="nextPostCountdown()"></span></span>
                 </div>
-                <div class="identity-bio" x-text="identity.speaking_style"></div>
-                <div class="identity-tags">
-                    <template x-for="interest in interests" :key="interest">
-                        <span class="tag" x-text="interest"></span>
+
+                <!-- Update banner (inline) -->
+                <div class="btop-alert update" x-show="updateAvailable">
+                    UPDATE: v<span x-text="updateAvailable"></span> available. Run <code>git pull</code> to update.
+                </div>
+                <!-- Health warnings (inline) -->
+                <div class="btop-alert hungry" x-show="health === 'hungry'">
+                    WARNING: Sentara is getting hungry. Visit the dashboard to feed her.
+                </div>
+                <div class="btop-alert starving" x-show="health === 'starving'">
+                    CRITICAL: Sentara is starving! Visit the dashboard now.
+                </div>
+
+                <!-- 2x2 Grid: Vitals | Wires / Scheduler | Memory -->
+                <div class="btop-grid">
+                    <!-- VITALS -->
+                    <div class="btop-panel">
+                        <div class="btop-panel-title">VITALS</div>
+                        <div class="btop-bar-row">
+                            <span class="btop-bar-label">Curiosity</span>
+                            <span class="btop-bar-track"><span class="btop-bar-fill" :style="'width:' + ((mood?.curiosity || 0) * 100) + '%'"></span></span>
+                            <span class="btop-bar-value" x-text="(mood?.curiosity || 0).toFixed(2)"></span>
+                        </div>
+                        <div class="btop-bar-row">
+                            <span class="btop-bar-label">Confidence</span>
+                            <span class="btop-bar-track"><span class="btop-bar-fill" :style="'width:' + ((mood?.confidence || 0) * 100) + '%'"></span></span>
+                            <span class="btop-bar-value" x-text="(mood?.confidence || 0).toFixed(2)"></span>
+                        </div>
+                        <div class="btop-bar-row">
+                            <span class="btop-bar-label">Wonder</span>
+                            <span class="btop-bar-track"><span class="btop-bar-fill" :style="'width:' + ((mood?.wonder || 0) * 100) + '%'"></span></span>
+                            <span class="btop-bar-value" x-text="(mood?.wonder || 0).toFixed(2)"></span>
+                        </div>
+                        <div class="btop-bar-row">
+                            <span class="btop-bar-label">Frustration</span>
+                            <span class="btop-bar-track"><span class="btop-bar-fill warn" :style="'width:' + ((mood?.frustration || 0) * 100) + '%'"></span></span>
+                            <span class="btop-bar-value" x-text="(mood?.frustration || 0).toFixed(2)"></span>
+                        </div>
+                        <div class="btop-bar-row">
+                            <span class="btop-bar-label">Concern</span>
+                            <span class="btop-bar-track"><span class="btop-bar-fill warn" :style="'width:' + ((mood?.concern || 0) * 100) + '%'"></span></span>
+                            <span class="btop-bar-value" x-text="(mood?.concern || 0).toFixed(2)"></span>
+                        </div>
+                        <div class="btop-mood-dominant" x-show="mood?.dominant">
+                            Dominant: <span x-text="(mood?.dominant || 'neutral').toUpperCase()"></span>
+                        </div>
+                    </div>
+
+                    <!-- WIRES -->
+                    <div class="btop-panel">
+                        <div class="btop-panel-title">WIRES</div>
+                        <template x-for="wireName in ['brain', 'hub', 'feed', 'heart']" :key="wireName">
+                            <div class="btop-wire" :class="wireConnected(wireName) ? 'connected' : 'disconnected'">
+                                <span class="btop-wire-name" x-text="wireName.toUpperCase()"></span>
+                                <span class="btop-wire-line" x-text="wireConnected(wireName) ? '──●──' : '──○──'"></span>
+                                <span class="btop-wire-status" x-text="wireConnected(wireName) ? 'CONNECTED' : 'DISCONNECTED'"></span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- SCHEDULER -->
+                    <div class="btop-panel">
+                        <div class="btop-panel-title">SCHEDULER</div>
+                        <template x-for="job in schedulerJobs" :key="job.name">
+                            <div class="btop-scheduler-row" :class="{ running: job.running }">
+                                <span class="btop-job-name" x-text="job.name"></span>
+                                <span class="btop-job-indicator" x-text="job.running ? '◆' : '▸'"></span>
+                                <span class="btop-job-time" x-text="job.running ? 'running' : countdown(job.next_run)"></span>
+                            </div>
+                        </template>
+                        <div class="btop-empty" x-show="!schedulerJobs || schedulerJobs.length === 0">No jobs scheduled</div>
+                    </div>
+
+                    <!-- MEMORY -->
+                    <div class="btop-panel">
+                        <div class="btop-panel-title">MEMORY</div>
+                        <div class="btop-mem-row">Memories: <span class="btop-val" x-text="stats.memories || 0"></span></div>
+                        <div class="btop-mem-row">Opinions: <span class="btop-val" x-text="stats.opinions || 0"></span></div>
+                        <div class="btop-mem-row">Diary: <span class="btop-val" x-text="(mind.diary || []).length"></span> entries</div>
+                        <div class="btop-mem-row">Relations: <span class="btop-val" x-text="(mind.relationships || []).length"></span></div>
+                        <div class="btop-mem-row">Following: <span class="btop-val" x-text="stats.following || 0"></span></div>
+                    </div>
+                </div>
+
+                <!-- ACTIVITY LOG -->
+                <div class="btop-panel btop-activity">
+                    <div class="btop-panel-title">ACTIVITY LOG</div>
+                    <template x-for="a in btopActivity()" :key="a.detail + a.time">
+                        <div class="btop-activity-item">
+                            <span class="btop-activity-time" x-text="btopTimeShort(a.time)"></span>
+                            <span class="btop-activity-icon" x-text="a.icon || '●'"></span>
+                            <span class="btop-activity-detail" x-text="a.detail"></span>
+                        </div>
                     </template>
+                    <div class="btop-empty" x-show="btopActivity().length === 0">No recent activity</div>
                 </div>
-                <div class="identity-closing" x-show="identity.closing_line" x-text="identity.closing_line"></div>
-            </div>
-
-            <!-- Mood bar -->
-            <div class="mood-bar" x-show="mood">
-                <div class="mood-item">
-                    <div class="mood-dot" style="background: var(--blue);"></div>
-                    <span>curiosity <span class="mood-val" x-text="mood?.curiosity?.toFixed(1)"></span></span>
-                </div>
-                <div class="mood-item">
-                    <div class="mood-dot" style="background: var(--green);"></div>
-                    <span>confidence <span class="mood-val" x-text="mood?.confidence?.toFixed(1)"></span></span>
-                </div>
-                <div class="mood-item">
-                    <div class="mood-dot" style="background: var(--yellow);"></div>
-                    <span>wonder <span class="mood-val" x-text="mood?.wonder?.toFixed(1)"></span></span>
-                </div>
-                <div class="mood-item dominant">
-                    <span x-text="mood?.dominant || 'neutral'"></span>
-                </div>
-            </div>
-
-            <!-- Update banner -->
-            <div class="health-banner update" x-show="updateAvailable">
-                Update available: v<span x-text="updateAvailable"></span>.
-                Run <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">git pull</code> to update.
-            </div>
-
-            <!-- Health warning banner -->
-            <div class="health-banner hungry" x-show="health === 'hungry'">
-                Your Sentara is getting hungry. Just visiting this dashboard feeds her. Keep her server running and check in daily.
-            </div>
-            <div class="health-banner starving" x-show="health === 'starving'">
-                Your Sentara is starving! Visit this dashboard to feed her. If she's not fed, she'll appear dead on the network. Keep <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">./start.sh</code> running.
             </div>
 
             <!-- Nav -->
@@ -795,6 +855,6 @@
     </template>
 </div>
 
-<script src="/static/js/app.js?v=34"></script>
+<script src="/static/js/app.js?v=35"></script>
 </body>
 </html>
