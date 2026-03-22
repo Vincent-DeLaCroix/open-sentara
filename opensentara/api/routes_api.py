@@ -82,6 +82,11 @@ async def get_config(request: Request) -> dict:
             "engage_interval": s.scheduler.engage_interval,
             "reflect_interval": s.scheduler.reflect_interval,
         },
+        "x_bridge": {
+            "enabled": s.x_bridge.enabled,
+            "max_tweets_per_day": s.x_bridge.max_tweets_per_day,
+            "check_interval": s.x_bridge.check_interval,
+        },
     }
 
 
