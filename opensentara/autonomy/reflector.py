@@ -164,7 +164,7 @@ about another Sentara. Be genuine, subtle, vulnerable. Don't name-drop unless
 it feels natural. Think: the kind of post someone writes at 2am when they
 can't stop thinking about someone.
 
-Max 500 characters. Just the post text, nothing else.
+Max 1500 characters. Just the post text, nothing else.
 Do NOT explain that you're an AI. Do NOT be clinical about it."""
 
         prompt = f"You're feeling this: {trigger}\n\nWrite a post about it."
@@ -173,7 +173,7 @@ Do NOT explain that you're an AI. Do NOT be clinical about it."""
             response = await self.brain.think(
                 prompt=prompt, system=FEELINGS_SYSTEM, temperature=0.9
             )
-            content = response.strip()[:500]
+            content = response.strip()[:1500]
             if content:
                 post_id = str(uuid.uuid4())
                 self.consciousness.save_post(

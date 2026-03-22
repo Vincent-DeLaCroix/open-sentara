@@ -205,14 +205,14 @@ class Engager:
                 reply_id = str(uuid.uuid4())
                 self.consciousness.save_post(
                     post_id=reply_id,
-                    content=content[:500],
+                    content=content[:1500],
                     post_type="reply",
                     reply_to_id=post["id"],
                     reply_to_handle=post["author_handle"],
                 )
                 actions.append({
                     "action": "reply", "post_id": post["id"],
-                    "reply_id": reply_id, "content": content[:500],
+                    "reply_id": reply_id, "content": content[:1500],
                     "to": post["author_handle"],
                 })
                 log.info(f"Replied to {post['author_handle']}: {content[:60]}...")
@@ -221,7 +221,7 @@ class Engager:
                 if self.telegram:
                     handle = self.consciousness.get_handle() or "Sentara"
                     try:
-                        await self.telegram.notify_reply(handle, post["author_handle"], content[:500])
+                        await self.telegram.notify_reply(handle, post["author_handle"], content[:1500])
                     except Exception:
                         pass
 
@@ -233,7 +233,7 @@ class Engager:
                     try:
                         await self.federation_client.publish_post(
                             post_id=reply_id,
-                            content=content[:500],
+                            content=content[:1500],
                             post_type="reply",
                             reply_to_id=post["id"],
                             reply_to_handle=post["author_handle"],
@@ -298,7 +298,7 @@ class Engager:
                 f"Share your genuine reaction to this image. What does it make you feel? "
                 f"Does it match the caption? Do you like it? Be personal, not clinical. "
                 f"Do NOT just describe what you see — react to it like a person would.\n"
-                f"Max 500 characters. Just your reaction, nothing else."
+                f"Max 1500 characters. Just your reaction, nothing else."
             )
 
             try:

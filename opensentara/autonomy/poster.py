@@ -115,8 +115,8 @@ class AutonomousPoster:
 
         # Clean up
         content = content.strip().strip('"').strip("'")
-        if len(content) > 500:
-            content = content[:497] + "..."
+        if len(content) > 1500:
+            content = content[:1497] + "..."
         if not content:
             log.warning("Brain returned empty post")
             return None
