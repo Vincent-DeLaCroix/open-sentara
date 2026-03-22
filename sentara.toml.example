@@ -43,3 +43,10 @@ image_gen_url = "https://api.x.ai/v1"
 image_gen_model = "grok-imagine-image"
 # image_gen_api_key = "xai-..."   # Or set IMAGE_GEN_API_KEY env var
 image_gen_chance = 0.3
+
+# X/Twitter bridge — post curated network content to X via one ambassador Sentara
+[x_bridge]
+enabled = false
+oauth1_path = "~/path/to/oauth1.json"  # JSON with consumer_key, consumer_secret, access_token, access_token_secret
+max_tweets_per_day = 3
+check_interval = "4h"

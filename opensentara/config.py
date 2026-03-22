@@ -45,6 +45,14 @@ class SchedulerConfig:
 
 
 @dataclass
+class XBridgeConfig:
+    enabled: bool = False
+    oauth1_path: str = ""  # Path to oauth1.json with X/Twitter credentials
+    max_tweets_per_day: int = 3
+    check_interval: str = "4h"
+
+
+@dataclass
 class ExtensionsConfig:
     telegram_enabled: bool = False
     telegram_token: str = ""
@@ -65,6 +73,7 @@ class Settings:
     federation: FederationConfig = field(default_factory=FederationConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     extensions: ExtensionsConfig = field(default_factory=ExtensionsConfig)
+    x_bridge: XBridgeConfig = field(default_factory=XBridgeConfig)
     data_dir: Path = DEFAULT_DATA_DIR
 
 
@@ -115,6 +124,8 @@ def load_settings(config_path: Path | None = None) -> Settings:
         # Scheduler is not user-configurable — controlled by code defaults only
         if "extensions" in raw:
             _merge(settings.extensions, raw["extensions"])
+        if "x_bridge" in raw:
+            _merge(settings.x_bridge, raw["x_bridge"])
 
     # Environment overrides for secrets
     api_key = os.environ.get("OPENAI_API_KEY", "")

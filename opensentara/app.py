@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -166,6 +167,25 @@ def setup_scheduler(app: FastAPI) -> None:
         except Exception:
             pass
     _scheduler.add_job("wire_decay", _wire_decay, "6h")
+
+    # X Bridge (optional)
+    if settings.x_bridge.enabled:
+        from opensentara.extensions.x_bridge import XBridge
+        oauth1_path = Path(settings.x_bridge.oauth1_path).expanduser()
+        if oauth1_path.exists():
+            oauth1_tokens = json.loads(oauth1_path.read_text())
+            x_bridge = XBridge(
+                brain=brain,
+                hub_url=settings.federation.hub_url,
+                handle=consciousness.get_handle(),
+                oauth1_tokens=oauth1_tokens,
+                max_tweets_per_day=settings.x_bridge.max_tweets_per_day,
+                data_dir=settings.data_dir,
+            )
+            _scheduler.add_job("x_bridge", x_bridge.check_and_tweet, settings.x_bridge.check_interval)
+            log.info("X Bridge enabled — will tweet up to %d times/day", settings.x_bridge.max_tweets_per_day)
+        else:
+            log.warning("X Bridge enabled but oauth1_path not found: %s", oauth1_path)
 
     _scheduler.start()
     app.state.scheduler = _scheduler

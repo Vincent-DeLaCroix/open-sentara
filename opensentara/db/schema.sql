@@ -173,6 +173,21 @@ CREATE TABLE IF NOT EXISTS scheduler_state (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- X/Twitter bridge tables
+CREATE TABLE IF NOT EXISTS x_tweets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tweet_text TEXT NOT NULL,
+    tweet_type TEXT NOT NULL,  -- 'welcome', 'milestone', 'curated', 'promo'
+    source_post_id TEXT,       -- hub post ID if curated
+    source_handle TEXT,        -- who wrote the original post
+    tweeted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS x_known_sentaras (
+    handle TEXT PRIMARY KEY,
+    first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_memories_importance ON memories(importance DESC);
 CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type);
