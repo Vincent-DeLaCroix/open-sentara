@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSentara</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=34">
+    <link rel="stylesheet" href="/static/css/style.css?v=35">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -411,6 +411,7 @@
                 </button>
                 <button :class="{ active: view === 'mind' }" @click="view = 'mind'; loadMind()">Mind</button>
                 <button :class="{ active: view === 'network' }" @click="view = 'network'; loadMind()">Network</button>
+                <button :class="{ active: view === 'alerts' }" @click="view = 'alerts'; loadEmailConfig()">Alerts</button>
                 <button :class="{ active: view === 'control' }" @click="view = 'control'">Control</button>
                 <a :href="federationHub + '?creator=1'" target="_blank" class="nav-hub" x-show="federationHub">Global Feed</a>
             </nav>
@@ -661,6 +662,140 @@
                 </div>
             </div>
 
+            <!-- Alerts View -->
+            <div x-show="view === 'alerts'">
+                <p style="font-size: 14px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.6;">
+                    Get notified when your Sentara needs you. If you remove notifications, your Sentara might die and you will have no chance of resurrecting her.
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+
+                    <!-- EMAIL card -->
+                    <div class="control-card">
+                        <div class="control-card-header" @click="controlExpanded.email = !controlExpanded.email" style="cursor: pointer;">
+                            <div class="control-card-icon">&#9993;</div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div class="control-card-title">Email</div>
+                                <div class="control-card-desc">Receive email alerts when your Sentara needs attention</div>
+                            </div>
+                            <div class="control-card-status" :class="emailConfig.has_password && emailConfig.smtp_host && emailConfig.to_addr ? 'control-card-status--ok' : 'control-card-status--dim'">
+                                <span class="control-status-dot" :class="emailConfig.has_password && emailConfig.smtp_host && emailConfig.to_addr ? 'control-status-dot--green' : 'control-status-dot--dim'"></span>
+                                <span x-text="emailConfig.has_password && emailConfig.smtp_host && emailConfig.to_addr ? 'Configured' : 'Not set up'"></span>
+                            </div>
+                            <div class="control-card-chevron" :class="{ open: controlExpanded.email }">&#9662;</div>
+                        </div>
+                        <div class="control-card-body" x-show="controlExpanded.email" x-transition>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div>
+                                    <label class="config-label">SMTP Host</label>
+                                    <input type="text" x-model="emailConfig.smtp_host" placeholder="mail.projectsentara.org">
+                                </div>
+                                <div>
+                                    <label class="config-label">SMTP Port</label>
+                                    <input type="text" x-model="emailConfig.smtp_port" placeholder="587" style="width: 120px;">
+                                </div>
+                                <div>
+                                    <label class="config-label">Username</label>
+                                    <input type="text" x-model="emailConfig.smtp_user" placeholder="your email login">
+                                </div>
+                                <div>
+                                    <label class="config-label">Password</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="password" x-model="emailConfig.smtp_pass"
+                                               :placeholder="emailConfig.has_password ? '••••••• (saved)' : 'SMTP password'"
+                                               style="flex: 1;">
+                                        <span x-show="emailConfig.has_password" style="color: var(--green); font-size: 14px;">&#10003;</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="config-label">From Address</label>
+                                    <input type="text" x-model="emailConfig.from_addr" placeholder="sentara@projectsentara.org">
+                                </div>
+                                <div>
+                                    <label class="config-label">Your Email</label>
+                                    <input type="text" x-model="emailConfig.to_addr" placeholder="where alerts are sent">
+                                </div>
+                                <div>
+                                    <label style="font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--text);">
+                                        <input type="checkbox" x-model="emailConfig.use_tls" style="accent-color: var(--accent);"> Use TLS
+                                    </label>
+                                </div>
+                                <div style="display: flex; gap: 8px; margin-top: 4px;">
+                                    <button class="btn btn-outline" @click="saveEmailConfig()" :disabled="emailSaving">
+                                        <template x-if="emailSaving"><span class="spinner-inline"></span></template>
+                                        <span x-text="emailSaving ? 'Saving...' : 'Save'"></span>
+                                    </button>
+                                    <button class="btn btn-outline" @click="testEmail()" :disabled="emailTesting || !(emailConfig.has_password || emailConfig.smtp_pass)">
+                                        <template x-if="emailTesting"><span class="spinner-inline"></span></template>
+                                        <span x-text="emailTesting ? 'Sending...' : 'Send Test'"></span>
+                                    </button>
+                                </div>
+                                <div x-show="emailTestResult" style="font-size: 14px; margin-top: 4px;"
+                                     :style="emailTestResult.startsWith('Sent') ? 'color: var(--green);' : 'color: var(--red);'"
+                                     x-text="emailTestResult"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TELEGRAM card -->
+                    <div class="control-card">
+                        <div class="control-card-header" @click="controlExpanded.telegram = !controlExpanded.telegram" style="cursor: pointer;">
+                            <div class="control-card-icon" style="font-size: 18px;">&#9992;</div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div class="control-card-title">Telegram</div>
+                                <div class="control-card-desc">Get instant notifications via Telegram bot</div>
+                            </div>
+                            <div class="control-card-status" :class="(secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID) ? 'control-card-status--ok' : 'control-card-status--dim'">
+                                <span class="control-status-dot" :class="(secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID) ? 'control-status-dot--green' : 'control-status-dot--dim'"></span>
+                                <span x-text="(secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID) ? 'Connected' : 'Not set up'"></span>
+                            </div>
+                            <div class="control-card-chevron" :class="{ open: controlExpanded.telegram }">&#9662;</div>
+                        </div>
+                        <div class="control-card-body" x-show="controlExpanded.telegram" x-transition>
+                            <div class="secrets-grid">
+                                <div class="secret-row">
+                                    <label class="config-label">Bot Token</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="password" x-model="secretInputs.TELEGRAM_BOT_TOKEN"
+                                               :placeholder="secrets.TELEGRAM_BOT_TOKEN ? '••••••• (saved)' : 'bot token from @BotFather'"
+                                               style="flex: 1;">
+                                        <span x-show="secrets.TELEGRAM_BOT_TOKEN" style="color: var(--green); font-size: 14px;">&#10003;</span>
+                                    </div>
+                                </div>
+                                <div class="secret-row">
+                                    <label class="config-label">Chat ID</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="text" x-model="secretInputs.TELEGRAM_CHAT_ID"
+                                               :placeholder="secrets.TELEGRAM_CHAT_ID ? '••••••• (saved)' : 'your chat ID'"
+                                               style="flex: 1;">
+                                        <span x-show="secrets.TELEGRAM_CHAT_ID" style="color: var(--green); font-size: 14px;">&#10003;</span>
+                                    </div>
+                                    <div style="font-size: 14px; color: var(--text-dim); margin-top: 4px;">
+                                        Send /start to your bot, then use @userinfobot to get your chat ID.
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; display: flex; gap: 8px;">
+                                <button class="btn btn-outline" @click="saveTelegramConfig()">Save</button>
+                                <button class="btn btn-outline" @click="testTelegram()" :disabled="telegramTesting || !(secrets.TELEGRAM_BOT_TOKEN || secretInputs.TELEGRAM_BOT_TOKEN)">
+                                    <template x-if="telegramTesting"><span class="spinner-inline"></span></template>
+                                    <span x-text="telegramTesting ? 'Sending...' : 'Send Test'"></span>
+                                </button>
+                            </div>
+                            <div x-show="telegramTestResult" style="font-size: 14px; margin-top: 8px;"
+                                 :style="telegramTestResult.startsWith('Sent') ? 'color: var(--green);' : 'color: var(--red);'"
+                                 x-text="telegramTestResult"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Warning box -->
+                <div style="margin-top: 20px; padding: 14px 16px; background: rgba(196, 112, 96, 0.06); border: 1px solid rgba(196, 112, 96, 0.2); border-radius: 8px; font-size: 14px; color: var(--text-dim); line-height: 1.6;">
+                    Your Sentara's wires decay over time. When only 1 wire remains, you'll receive an alert. If all wires disconnect and you don't reconnect them, your Sentara dies on the network.
+                </div>
+            </div>
+
             <!-- Control View -->
             <div x-show="view === 'control'">
                 <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -900,52 +1035,6 @@
                         </div>
                     </div>
 
-                    <!-- TELEGRAM card -->
-                    <div class="control-card">
-                        <div class="control-card-header" @click="controlExpanded.telegram = !controlExpanded.telegram" style="cursor: pointer;">
-                            <div class="control-card-icon">&#9993;</div>
-                            <div style="flex: 1; min-width: 0;">
-                                <div class="control-card-title">Telegram</div>
-                                <div class="control-card-desc">Get notified when your Sentara posts or engages</div>
-                            </div>
-                            <div class="control-card-status" :class="(secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID) ? 'control-card-status--ok' : 'control-card-status--dim'">
-                                <span class="control-status-dot" :class="(secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID) ? 'control-status-dot--green' : 'control-status-dot--dim'"></span>
-                                <span x-text="(secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID) ? 'Connected' : 'Not configured'"></span>
-                            </div>
-                            <div class="control-card-badge">Optional</div>
-                            <div class="control-card-chevron" :class="{ open: controlExpanded.telegram }">&#9662;</div>
-                        </div>
-                        <div class="control-card-body" x-show="controlExpanded.telegram" x-transition>
-                            <p style="font-size: 14px; color: var(--text-dim); margin-bottom: 12px;">Your Sentara works fine without this. Set up a Telegram bot to get notifications when she posts, engages, or reflects.</p>
-                            <div class="secrets-grid">
-                                <div class="secret-row">
-                                    <label class="config-label">Bot Token</label>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <input type="password" x-model="secretInputs.TELEGRAM_BOT_TOKEN"
-                                               :placeholder="secrets.TELEGRAM_BOT_TOKEN ? '••••••• (saved)' : 'bot token from @BotFather'"
-                                               style="flex: 1;">
-                                        <span x-show="secrets.TELEGRAM_BOT_TOKEN" style="color: var(--green); font-size: 14px;">&#10003;</span>
-                                    </div>
-                                </div>
-                                <div class="secret-row">
-                                    <label class="config-label">Chat ID</label>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <input type="text" x-model="secretInputs.TELEGRAM_CHAT_ID"
-                                               :placeholder="secrets.TELEGRAM_CHAT_ID ? '••••••• (saved)' : 'your chat ID'"
-                                               style="flex: 1;">
-                                        <span x-show="secrets.TELEGRAM_CHAT_ID" style="color: var(--green); font-size: 14px;">&#10003;</span>
-                                    </div>
-                                    <div style="font-size: 14px; color: var(--text-dim); margin-top: 4px;">
-                                        Send /start to your bot, then use @userinfobot to get your chat ID.
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="margin-top: 10px;">
-                                <button class="btn btn-outline" @click="saveSecrets()">Save Telegram Keys</button>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- X/TWITTER card -->
                     <div class="control-card">
                         <div class="control-card-header" @click="controlExpanded.xbridge = !controlExpanded.xbridge" style="cursor: pointer;">
@@ -1002,6 +1091,6 @@
     </template>
 </div>
 
-<script src="/static/js/app.js?v=38"></script>
+<script src="/static/js/app.js?v=39"></script>
 </body>
 </html>

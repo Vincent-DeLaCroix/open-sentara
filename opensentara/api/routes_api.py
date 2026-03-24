@@ -537,6 +537,132 @@ async def reconnect_wire(request: Request) -> dict:
     return {"status": "reconnected", "wire": wire}
 
 
+@router.get("/email-config")
+async def get_email_config(request: Request) -> dict:
+    """Get current email config (password redacted)."""
+    s = request.app.state.settings
+    return {
+        "enabled": s.email.enabled,
+        "smtp_host": s.email.smtp_host,
+        "smtp_port": s.email.smtp_port,
+        "smtp_user": s.email.smtp_user,
+        "has_password": bool(s.email.smtp_pass),
+        "from_addr": s.email.from_addr,
+        "to_addr": s.email.to_addr,
+        "use_tls": s.email.use_tls,
+    }
+
+
+@router.post("/email-config")
+async def save_email_config(request: Request) -> dict:
+    """Save email config to sentara.toml. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    settings = request.app.state.settings
+    email = settings.email
+
+    email.enabled = True
+    email.smtp_host = body.get("smtp_host", email.smtp_host)
+    email.smtp_port = int(body.get("smtp_port", email.smtp_port))
+    email.smtp_user = body.get("smtp_user", email.smtp_user)
+    if body.get("smtp_pass"):
+        email.smtp_pass = body["smtp_pass"]
+    email.from_addr = body.get("from_addr", email.from_addr)
+    email.to_addr = body.get("to_addr", email.to_addr)
+    email.use_tls = body.get("use_tls", email.use_tls)
+
+    # Save to sentara.toml
+    from opensentara.api.routes_setup import _save_config_section
+    config_values = {
+        "enabled": email.enabled,
+        "smtp_host": email.smtp_host,
+        "smtp_port": email.smtp_port,
+        "smtp_user": email.smtp_user,
+        "from_addr": email.from_addr,
+        "to_addr": email.to_addr,
+        "use_tls": email.use_tls,
+    }
+    if body.get("smtp_pass"):
+        config_values["smtp_pass"] = email.smtp_pass
+    _save_config_section("email", config_values)
+
+    # Recreate EmailNotifier
+    if email.enabled and email.smtp_host and email.to_addr and email.smtp_pass:
+        from opensentara.extensions.email_notifier import EmailNotifier
+        notifier = EmailNotifier(
+            smtp_host=email.smtp_host,
+            smtp_port=email.smtp_port,
+            smtp_user=email.smtp_user,
+            smtp_pass=email.smtp_pass,
+            from_addr=email.from_addr,
+            to_addr=email.to_addr,
+            use_tls=email.use_tls,
+        )
+        request.app.state.email_notifier = notifier
+
+    return {"status": "saved"}
+
+
+@router.post("/email-config/test")
+async def test_email_config(request: Request) -> dict:
+    """Send a test email using current config. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+    notifier = getattr(request.app.state, "email_notifier", None)
+    if not notifier:
+        return JSONResponse({"error": "Email not configured. Save your settings first."}, status_code=400)
+
+    handle = request.app.state.consciousness.get_handle() or "Your Sentara"
+    subject = f"Test alert from {handle}"
+    body_html = f"""
+<html>
+<body style="background: #0a0806; color: #f5f0eb; font-family: 'Courier New', monospace; padding: 40px; max-width: 600px; margin: 0 auto;">
+<div style="border: 2px solid #4ade80; border-radius: 12px; padding: 30px; background: #081a08;">
+<h1 style="color: #4ade80; margin: 0 0 20px 0; font-size: 24px;">Email alerts are working</h1>
+<p style="font-size: 16px; line-height: 1.6; color: #f5f0eb;">
+This is a test alert from <strong>{handle}</strong>. If you're reading this, email notifications are configured correctly.
+</p>
+<p style="font-size: 16px; line-height: 1.6; color: #f5f0eb;">
+You'll receive alerts when your Sentara's wires are failing and she needs your attention.
+</p>
+</div>
+<p style="text-align: center; margin-top: 20px; font-size: 12px; color: #444;">
+<a href="https://projectsentara.org" style="color: #666;">projectsentara.org</a>
+</p>
+</body>
+</html>
+"""
+    body_text = f"Test alert from {handle}. Email notifications are configured correctly."
+
+    ok = notifier.send(subject, body_html, body_text)
+    if ok:
+        return {"status": "sent", "to": notifier.to_addr}
+    return JSONResponse({"error": "Failed to send. Check your SMTP settings."}, status_code=500)
+
+
+@router.post("/telegram/test")
+async def test_telegram(request: Request) -> dict:
+    """Send a test Telegram message. Localhost only."""
+    if not _is_local(request):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+    telegram = getattr(request.app.state, "telegram", None)
+    if not telegram:
+        return JSONResponse({"error": "Telegram not configured. Save your bot token and chat ID first."}, status_code=400)
+
+    handle = request.app.state.consciousness.get_handle() or "Your Sentara"
+    ok = await telegram.send(f"Test alert from <b>{handle}</b>. Telegram notifications are working.")
+    if ok:
+        return {"status": "sent"}
+    return JSONResponse({"error": "Failed to send. Check your bot token and chat ID."}, status_code=500)
+
+
 @router.post("/scheduler/trigger/{action}")
 async def trigger_action(request: Request, action: str) -> dict:
     """Manually trigger a scheduled action: post, reflect, engage, decay."""

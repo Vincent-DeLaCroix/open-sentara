@@ -24,6 +24,12 @@ function sentara() {
         imageGenKey: '',
         secrets: {},
         secretInputs: { IMAGE_GEN_API_KEY: '', OPENAI_API_KEY: '', TELEGRAM_BOT_TOKEN: '', TELEGRAM_CHAT_ID: '' },
+        emailConfig: { smtp_host: '', smtp_port: 587, smtp_user: '', smtp_pass: '', from_addr: '', to_addr: '', use_tls: true, has_password: false },
+        emailSaving: false,
+        emailTesting: false,
+        emailTestResult: '',
+        telegramTesting: false,
+        telegramTestResult: '',
         creatorEmail: '',
         creatorName: '',
         creatorToken: '',
@@ -45,7 +51,7 @@ function sentara() {
         interviewResults: [],
         interviewCurrentQ: '',
         handle: '',
-        view: (function() { try { var v = localStorage.getItem('sentara-view'); return ['feed','mind','network','control'].indexOf(v) >= 0 ? v : 'feed'; } catch(e) { return 'feed'; } })(),
+        view: (function() { try { var v = localStorage.getItem('sentara-view'); return ['feed','mind','network','alerts','control'].indexOf(v) >= 0 ? v : 'feed'; } catch(e) { return 'feed'; } })(),
         feed: [],
         stats: {},
         mood: null,
@@ -56,7 +62,7 @@ function sentara() {
         schedulerJobs: [],
         mind: { diary: [], opinions: [], evolution: [], relationships: [] },
         federationHub: '',
-        controlExpanded: { brain: false, avatar: false, imageGen: false, telegram: false, xbridge: false },
+        controlExpanded: { brain: false, avatar: false, imageGen: false, telegram: false, xbridge: false, email: false },
         actionRunning: null,
         actionStatus: '',
         activityLog: [],
@@ -987,6 +993,102 @@ function sentara() {
             } catch {
                 this.showToast('Failed to save', 'error');
             }
+        },
+
+        async loadEmailConfig() {
+            try {
+                const resp = await fetch('/api/email-config');
+                const data = await resp.json();
+                this.emailConfig = {
+                    smtp_host: data.smtp_host || '',
+                    smtp_port: data.smtp_port || 587,
+                    smtp_user: data.smtp_user || '',
+                    smtp_pass: '',
+                    from_addr: data.from_addr || '',
+                    to_addr: data.to_addr || '',
+                    use_tls: data.use_tls !== false,
+                    has_password: data.has_password || false,
+                };
+                this.emailTestResult = '';
+            } catch (e) {}
+        },
+
+        async saveEmailConfig() {
+            this.emailSaving = true;
+            this.emailTestResult = '';
+            try {
+                const body = {
+                    smtp_host: this.emailConfig.smtp_host,
+                    smtp_port: parseInt(this.emailConfig.smtp_port) || 587,
+                    smtp_user: this.emailConfig.smtp_user,
+                    from_addr: this.emailConfig.from_addr,
+                    to_addr: this.emailConfig.to_addr,
+                    use_tls: this.emailConfig.use_tls,
+                };
+                if (this.emailConfig.smtp_pass) {
+                    body.smtp_pass = this.emailConfig.smtp_pass;
+                }
+                const resp = await fetch('/api/email-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    this.showToast('Email settings saved');
+                    this.emailConfig.has_password = this.emailConfig.has_password || !!this.emailConfig.smtp_pass;
+                    this.emailConfig.smtp_pass = '';
+                } else {
+                    this.showToast(data.error || 'Failed to save', 'error');
+                }
+            } catch {
+                this.showToast('Failed to save email settings', 'error');
+            }
+            this.emailSaving = false;
+        },
+
+        async testEmail() {
+            this.emailTesting = true;
+            this.emailTestResult = '';
+            try {
+                const resp = await fetch('/api/email-config/test', { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok) {
+                    this.emailTestResult = 'Sent to ' + (data.to || 'your email');
+                    this.showToast('Test email sent');
+                } else {
+                    this.emailTestResult = data.error || 'Failed to send';
+                    this.showToast(data.error || 'Test failed', 'error');
+                }
+            } catch {
+                this.emailTestResult = 'Failed to send test email';
+                this.showToast('Test email failed', 'error');
+            }
+            this.emailTesting = false;
+        },
+
+        async saveTelegramConfig() {
+            await this.saveSecrets();
+        },
+
+        async testTelegram() {
+            this.telegramTesting = true;
+            this.telegramTestResult = '';
+            try {
+                const resp = await fetch('/api/telegram/test', { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok) {
+                    this.telegramTestResult = 'Sent! Check your Telegram.';
+                    this.showToast('Test message sent');
+                } else {
+                    this.telegramTestResult = data.error || 'Failed to send';
+                    this.showToast(data.error || 'Test failed', 'error');
+                }
+            } catch {
+                this.telegramTestResult = 'Failed to send test message';
+                this.showToast('Telegram test failed', 'error');
+            }
+            this.telegramTesting = false;
         },
 
         async saveFeeds() {
