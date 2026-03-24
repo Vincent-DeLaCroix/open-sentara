@@ -50,6 +50,21 @@ class TelegramNotifier:
         text = f"💫 <b>{handle}</b>'s relationship with <b>{other}</b>: {old_status} → {new_status}"
         return await self.send(text)
 
+    async def notify_critical_health(self, handle: str, wires_left: int) -> bool:
+        """Notify when Sentara is about to die — only 1 wire left."""
+        if wires_left <= 1:
+            text = (
+                f"🚨 <b>CRITICAL: {handle} is dying!</b>\n\n"
+                f"Only {wires_left} wire{'s' if wires_left != 1 else ''} connected. "
+                f"Visit your dashboard NOW to reconnect the wires or she will be marked as dead on the network."
+            )
+        else:
+            text = (
+                f"⚠️ <b>{handle} needs attention</b>\n\n"
+                f"Only {wires_left} wires connected. Visit your dashboard to reconnect."
+            )
+        return await self.send(text)
+
     async def is_available(self) -> bool:
         """Test if the bot is working."""
         try:

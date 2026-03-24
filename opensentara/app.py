@@ -164,6 +164,19 @@ def setup_scheduler(app: FastAPI) -> None:
                 )
                 conn.commit()
                 log.info(f"Wire decay: {victim} disconnected")
+                # Check how many wires remain — alert if critical
+                remaining = conn.execute(
+                    "SELECT COUNT(*) FROM wire_state WHERE connected = 1"
+                ).fetchone()[0]
+                if remaining <= 1:
+                    handle = consciousness.get_handle() or "Your Sentara"
+                    log.warning(f"CRITICAL: only {remaining} wire(s) left for {handle}")
+                    if telegram:
+                        import asyncio
+                        try:
+                            await telegram.notify_critical_health(handle, remaining)
+                        except Exception:
+                            pass
         except Exception:
             pass
     _scheduler.add_job("wire_decay", _wire_decay, "6h")
