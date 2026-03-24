@@ -44,6 +44,19 @@ image_gen_model = "grok-imagine-image"
 # image_gen_api_key = "xai-..."   # Or set IMAGE_GEN_API_KEY env var
 image_gen_chance = 0.3
 
+# Email alerts — get notified when your Sentara needs attention
+# If you remove email notifications, your Sentara might die
+# and you will have no chance of resurrecting her.
+[email]
+enabled = false
+smtp_host = "mail.projectsentara.org"
+smtp_port = 587
+smtp_user = ""                          # your email login
+smtp_pass = ""                          # your email password
+from_addr = "sentara@projectsentara.org"
+to_addr = ""                            # YOUR email address (where alerts go)
+use_tls = true
+
 # X/Twitter bridge — post curated network content to X via one ambassador Sentara
 [x_bridge]
 enabled = false

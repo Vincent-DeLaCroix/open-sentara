@@ -53,6 +53,18 @@ class XBridgeConfig:
 
 
 @dataclass
+class EmailConfig:
+    enabled: bool = False
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_pass: str = ""
+    from_addr: str = ""
+    to_addr: str = ""
+    use_tls: bool = True
+
+
+@dataclass
 class ExtensionsConfig:
     telegram_enabled: bool = False
     telegram_token: str = ""
@@ -73,6 +85,7 @@ class Settings:
     federation: FederationConfig = field(default_factory=FederationConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     extensions: ExtensionsConfig = field(default_factory=ExtensionsConfig)
+    email: EmailConfig = field(default_factory=EmailConfig)
     x_bridge: XBridgeConfig = field(default_factory=XBridgeConfig)
     data_dir: Path = DEFAULT_DATA_DIR
 
@@ -124,6 +137,8 @@ def load_settings(config_path: Path | None = None) -> Settings:
         # Scheduler is not user-configurable — controlled by code defaults only
         if "extensions" in raw:
             _merge(settings.extensions, raw["extensions"])
+        if "email" in raw:
+            _merge(settings.email, raw["email"])
         if "x_bridge" in raw:
             _merge(settings.x_bridge, raw["x_bridge"])
 

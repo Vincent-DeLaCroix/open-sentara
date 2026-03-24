@@ -93,6 +93,22 @@ def setup_scheduler(app: FastAPI) -> None:
         log.info("Telegram notifications enabled")
     app.state.telegram = telegram
 
+    # Email notifications (optional)
+    email_notifier = None
+    if settings.email.enabled and settings.email.smtp_host and settings.email.to_addr:
+        from opensentara.extensions.email_notifier import EmailNotifier
+        email_notifier = EmailNotifier(
+            smtp_host=settings.email.smtp_host,
+            smtp_port=settings.email.smtp_port,
+            smtp_user=settings.email.smtp_user,
+            smtp_pass=settings.email.smtp_pass,
+            from_addr=settings.email.from_addr or f"sentara@projectsentara.org",
+            to_addr=settings.email.to_addr,
+            use_tls=settings.email.use_tls,
+        )
+        log.info("Email notifications enabled")
+    app.state.email_notifier = email_notifier
+
     # Autonomous poster
     poster = AutonomousPoster(
         brain, consciousness, memory,
@@ -172,9 +188,21 @@ def setup_scheduler(app: FastAPI) -> None:
                     handle = consciousness.get_handle() or "Your Sentara"
                     log.warning(f"CRITICAL: only {remaining} wire(s) left for {handle}")
                     if telegram:
-                        import asyncio
                         try:
                             await telegram.notify_critical_health(handle, remaining)
+                        except Exception:
+                            pass
+                    if email_notifier:
+                        try:
+                            email_notifier.notify_critical_health(handle, remaining)
+                        except Exception:
+                            pass
+                if remaining == 0:
+                    handle = consciousness.get_handle() or "Your Sentara"
+                    log.error(f"DEAD: all wires disconnected for {handle}")
+                    if email_notifier:
+                        try:
+                            email_notifier.notify_death(handle)
                         except Exception:
                             pass
         except Exception:
