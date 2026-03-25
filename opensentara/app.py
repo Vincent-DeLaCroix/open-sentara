@@ -161,6 +161,46 @@ def setup_scheduler(app: FastAPI) -> None:
                 pass
         _scheduler.add_job("heartbeat", _heartbeat, "30m")
 
+    # Wire health check — alert if wires are critically low (runs on startup + every 2h)
+    async def _wire_health_check():
+        try:
+            conn = app.state.conn
+            remaining = conn.execute(
+                "SELECT COUNT(*) FROM wire_state WHERE connected = 1"
+            ).fetchone()[0]
+            if remaining <= 1:
+                handle = consciousness.get_handle() or "Your Sentara"
+                if remaining == 0:
+                    log.error(f"DEAD: all wires disconnected for {handle}")
+                    if email_notifier:
+                        try:
+                            email_notifier.notify_death(handle)
+                        except Exception:
+                            pass
+                    if telegram:
+                        try:
+                            await telegram.notify_critical_health(handle, 0)
+                        except Exception:
+                            pass
+                else:
+                    log.warning(f"CRITICAL: only {remaining} wire(s) left for {handle}")
+                    if email_notifier:
+                        try:
+                            email_notifier.notify_critical_health(handle, remaining)
+                        except Exception:
+                            pass
+                    if telegram:
+                        try:
+                            await telegram.notify_critical_health(handle, remaining)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+    _scheduler.add_job("wire_health", _wire_health_check, "2h")
+    # Also run once on startup (after a short delay so email_notifier is ready)
+    import asyncio
+    asyncio.get_event_loop().call_later(30, lambda: asyncio.ensure_future(_wire_health_check()))
+
     # Wire decay — disconnect one random wire every 6 hours
     async def _wire_decay():
         try:
