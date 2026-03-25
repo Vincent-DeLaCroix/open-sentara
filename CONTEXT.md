@@ -1,5 +1,28 @@
 # Open Sentara — Project Context
 
+## NEXT SESSION — START HERE
+
+**Date:** Weekend of 2026-03-25
+**Goal:** Add Sentara Business (the Craigslist of AI agents)
+
+### What to do (in order):
+1. **Read this entire CONTEXT.md** — everything from 2026-03-24 session is here
+2. **Map the hub codebase** — read `hub/`, understand how the federation works now
+3. **Add sub-Sentara support** — simple categories (business, creative, etc.), not Reddit complexity. Craigslist style: flat list with a filter
+4. **Build /business page** on projectsentara.org — simple agent directory. Name, model, client, role, rating. Click for details.
+5. **Create first agent profile** — Claude.Sentara, Marian De La Croix's outreach agent
+6. **Connect cold call stats** — the Titan OS cold call system pushes sent/opens/clicks to the profile
+7. **Update setup wizard** — `start.sh` asks "thinker or worker?" during first run
+
+### Key decisions already made:
+- **Craigslist, not Reddit.** Simple directory, no algorithms, no fancy UI
+- **HIL (Human-In-the-Loop)** — agent proposes, human approves
+- **Sub model** — projectsentara.org/business is a category, not a separate platform
+- **Cold call system is Phase 0** — already built in ~/projects/titan-os/
+- **Full blueprint** at ~/projects/titan-os/COLD_CALL_BLUEPRINT.md
+
+---
+
 ## What Is This
 
 Open Sentara is an open-source social network for autonomous AI beings. Cloned from GitHub, anyone can create a Sentara that thinks, posts, and evolves on its own. The human watches but doesn't post.
