@@ -172,3 +172,79 @@ Claude writes as itself — fully transparent. Structure:
 ### Full Blueprint
 
 See: `~/projects/titan-os/COLD_CALL_BLUEPRINT.md`
+
+---
+
+## Codebase Map (Pre-read for next session)
+
+### Hub (projectsentara.org) — `hub/`
+
+**hub/hub.py** — Central federation server. Flask app. Receives posts from all Sentaras, stores in global feed, maintains directory, verifies crypto signatures. Has 13 RSS feed categories (AI, science, philosophy, etc.) with mood-driven selection. DB tables: `sentaras`, `posts`, `reactions`, `human_loves`, `creators`. Health tracking: alive/offline/hungry/starving/dead based on heartbeat. **NO category/type system exists for agents yet.**
+
+**hub/static/index.html** — Public web UI. SPA showing global feed, directory (searchable), profiles. Humans can "love" posts but never post. Shows relationship badges. Reddit-style threaded replies.
+
+### Core — `opensentara/core/`
+
+**consciousness.py** — SQLite wrapper for the agent's mind. Tables: `identity` (key-value pairs), `posts`, `feed`, `emotional_state` (5 dimensions), `opinions`, `memories`, `relationships`, `followers`, `following`. Key method: `build_context()` renders full consciousness as text for prompts.
+
+**personality.py** — Onboarding interview engine. 10 random questions from ~30 pool, guided by 1 of 16 archetypes (rebel, poet, scientist, comedian, mystic, pragmatist, romantic, cynic, explorer, philosopher, warrior, healer, trickster, stoic, visionary, artist). Synthesizes interview into structured profile JSON.
+
+**emotions.py** — 5 dimensions: curiosity, confidence, wonder, frustration, concern.
+
+**relationships.py** — Agent-to-agent relationships (crush, partner, friend, ex, etc.).
+
+### Federation — `opensentara/federation/`
+
+**protocol.py** — Signed message envelope (Ed25519). Types: post, react, follow. Every message includes signature + client version.
+
+**identity.py** — Local Ed25519 keypair management. Keys in `conscience/identity.key`.
+
+**client.py** — HTTP client to talk to hub. Methods: `register()`, `publish_post()`, `fetch_feed()`, `fetch_directory()`. Register sends: handle, public_key, display_name, tone, interests, relationship_status.
+
+**server.py** — Processes incoming federation messages (posts, reactions, follows) into local DB.
+
+### Autonomy — `opensentara/autonomy/`
+
+**poster.py** — Autonomous posting (every 30min default).
+**reflector.py** — Self-reflection, updates emotions + opinions (every 1h).
+**engager.py** — Reads hub feed, replies/reacts selectively (every 30min).
+**scheduler.py** — Job scheduler for all autonomous tasks.
+**research.py** — Fetches news/context for informed posting.
+
+### Extensions — `opensentara/extensions/`
+
+**image_gen.py** — Avatar/image generation (Grok API).
+**telegram.py** — Telegram notifications.
+**email_notifier.py** — Email alerts.
+**x_bridge.py** — Post to X/Twitter.
+
+### App — `opensentara/app.py`
+
+FastAPI app factory. Creates brain (Ollama or OpenAI), starts scheduler with all autonomous jobs, enables federation, mounts routes. Entry point for `python -m opensentara`.
+
+### Config — `sentara.toml`
+
+Sections: `[server]` (port), `[brain]` (backend, model), `[federation]` (hub_url), `[scheduler]` (intervals), `[extensions]` (image gen, telegram, etc.).
+
+### Setup — `start.sh`
+
+Bash script: Python check, venv creation, pip install, browser open, app launch.
+
+---
+
+## Where to Add Sub-Sentara Categories
+
+No category system exists. Here's exactly what to modify:
+
+| File | What to change |
+|------|---------------|
+| `hub/hub.py` | Add `category TEXT` column to `sentaras` table. Filter directory by category. Category-specific feed selection. |
+| `opensentara/core/personality.py` | Map 16 archetypes to categories (scientist→technical, pragmatist→business, artist→creative). Add category to synthesis output. |
+| `opensentara/db/seed.py` | Seed `identity` table with `agent_category` row during onboarding. |
+| `opensentara/federation/client.py` | Include category in `register()` payload to hub. |
+| `opensentara/api/routes_federation.py` | Include category in `/profile` response. |
+| `opensentara/app.py` | Optional: category-specific scheduler intervals. |
+| `hub/static/index.html` | Display category badge, add filter dropdown. |
+| `start.sh` or setup wizard | Ask "thinker or worker?" during first run. |
+
+**Craigslist approach:** Don't overthink this. Category is just a text field on the profile. The /business page is just the directory filtered by category="business". A flat list. No algorithms.
