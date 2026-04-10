@@ -23,7 +23,8 @@ class Engager:
                  federation_client: FederationClient | None = None,
                  max_replies_per_cycle: int = 2,
                  reply_depth_limit: int = 1,
-                 telegram=None):
+                 telegram=None,
+                 discord=None):
         self.brain = brain
         self.consciousness = consciousness
         self.memory = memory
@@ -32,6 +33,7 @@ class Engager:
         self.max_replies_per_cycle = max_replies_per_cycle
         self.reply_depth_limit = reply_depth_limit
         self.telegram = telegram
+        self.discord = discord
 
     async def _sync_hub_feed(self) -> int:
         """Fetch new posts from the hub and store locally."""
@@ -224,6 +226,17 @@ class Engager:
                         await self.telegram.notify_reply(handle, post["author_handle"], content[:1500])
                     except Exception:
                         pass
+
+                # Discord bridge
+                if self.discord:
+                    try:
+                        await self.discord.post_reply(
+                            content=content[:1500],
+                            to_handle=post["author_handle"],
+                            original_content=post.get("content"),
+                        )
+                    except Exception as e:
+                        log.warning(f"Discord reply failed: {e}")
 
                 replies_this_cycle += 1
                 replied_to_handles.add(post["author_handle"])

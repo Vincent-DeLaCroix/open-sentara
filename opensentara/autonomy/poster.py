@@ -27,7 +27,8 @@ class AutonomousPoster:
                  image_backend: ImageBackend | None = None,
                  image_chance: float = 0.3,
                  data_dir: Path | None = None,
-                 telegram=None):
+                 telegram=None,
+                 discord=None):
         self.brain = brain
         self.consciousness = consciousness
         self.memory = memory
@@ -37,6 +38,7 @@ class AutonomousPoster:
         self.image_chance = image_chance
         self.data_dir = data_dir or Path("conscience")
         self.telegram = telegram
+        self.discord = discord
 
     async def create_post(self) -> dict | None:
         """Full autonomous posting cycle: research -> think -> compose -> save."""
@@ -183,6 +185,16 @@ class AutonomousPoster:
                 await self.telegram.notify_post(handle, content, "thought")
             except Exception:
                 pass
+
+        # Discord bridge
+        if self.discord:
+            try:
+                abs_media = None
+                if media_url and self.hub_url:
+                    abs_media = self.hub_url.rstrip("/") + media_url if media_url.startswith("/") else media_url
+                await self.discord.post_thought(content, image_url=abs_media)
+            except Exception as e:
+                log.warning(f"Discord post failed: {e}")
 
         return {"id": post_id, "content": content, "topics": topics,
                 "media_url": media_url, "media_type": media_type}

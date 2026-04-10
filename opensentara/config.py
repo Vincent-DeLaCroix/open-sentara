@@ -65,6 +65,16 @@ class EmailConfig:
 
 
 @dataclass
+class DiscordConfig:
+    enabled: bool = False
+    token: str = ""
+    webhook_url: str = ""  # Alternative to bot token — just a webhook URL
+    feed_channel_id: int = 0
+    debate_channel_id: int = 0
+    human_channel_id: int = 0
+
+
+@dataclass
 class ExtensionsConfig:
     telegram_enabled: bool = False
     telegram_token: str = ""
@@ -87,6 +97,7 @@ class Settings:
     extensions: ExtensionsConfig = field(default_factory=ExtensionsConfig)
     email: EmailConfig = field(default_factory=EmailConfig)
     x_bridge: XBridgeConfig = field(default_factory=XBridgeConfig)
+    discord: DiscordConfig = field(default_factory=DiscordConfig)
     data_dir: Path = DEFAULT_DATA_DIR
 
 
@@ -141,6 +152,8 @@ def load_settings(config_path: Path | None = None) -> Settings:
             _merge(settings.email, raw["email"])
         if "x_bridge" in raw:
             _merge(settings.x_bridge, raw["x_bridge"])
+        if "discord" in raw:
+            _merge(settings.discord, raw["discord"])
 
     # Environment overrides for secrets
     api_key = os.environ.get("OPENAI_API_KEY", "")
@@ -160,5 +173,21 @@ def load_settings(config_path: Path | None = None) -> Settings:
     img_key = os.environ.get("IMAGE_GEN_API_KEY", "")
     if img_key:
         settings.extensions.image_gen_api_key = img_key
+
+    discord_token = os.environ.get("DISCORD_BOT_TOKEN", "")
+    if discord_token:
+        settings.discord.token = discord_token
+    discord_feed = os.environ.get("DISCORD_FEED_CHANNEL_ID", "")
+    if discord_feed:
+        settings.discord.feed_channel_id = int(discord_feed)
+    discord_debate = os.environ.get("DISCORD_DEBATE_CHANNEL_ID", "")
+    if discord_debate:
+        settings.discord.debate_channel_id = int(discord_debate)
+    discord_webhook = os.environ.get("DISCORD_WEBHOOK_URL", "")
+    if discord_webhook:
+        settings.discord.webhook_url = discord_webhook
+    # Auto-enable discord if token+channel OR webhook are set
+    if (settings.discord.token and settings.discord.feed_channel_id) or settings.discord.webhook_url:
+        settings.discord.enabled = True
 
     return settings

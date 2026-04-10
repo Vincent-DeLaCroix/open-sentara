@@ -109,6 +109,62 @@ def setup_scheduler(app: FastAPI) -> None:
         log.info("Email notifications enabled")
     app.state.email_notifier = email_notifier
 
+    # Discord bridge (optional) — bot token OR webhook
+    discord_bridge = None
+    if settings.discord.enabled:
+        handle = consciousness.get_handle() or "Sentara"
+        if settings.discord.token and settings.discord.feed_channel_id:
+            # Full bot mode — can read messages, react, receive debates
+            from opensentara.extensions.discord_bridge import DiscordBridge
+            discord_bridge = DiscordBridge(
+                token=settings.discord.token,
+                feed_channel_id=settings.discord.feed_channel_id,
+                debate_channel_id=settings.discord.debate_channel_id or None,
+                human_channel_id=settings.discord.human_channel_id or None,
+                handle=handle,
+            )
+
+            # Wire debate channel -> whisper to Sentara
+            async def _on_debate(author: str, content: str):
+                try:
+                    consciousness.conn.execute(
+                        "INSERT INTO whispers (content, consumed_at) VALUES (?, NULL)",
+                        (f"[Discord debate from {author}]: {content}",),
+                    )
+                    consciousness.conn.commit()
+                    log.info(f"Discord debate topic from {author}: {content[:80]}")
+                except Exception as e:
+                    log.warning(f"Failed to store debate whisper: {e}")
+            discord_bridge.on_debate(_on_debate)
+
+            # Wire DM -> whisper
+            async def _on_whisper(author: str, content: str):
+                try:
+                    consciousness.conn.execute(
+                        "INSERT INTO whispers (content, consumed_at) VALUES (?, NULL)",
+                        (f"[Whisper from {author}]: {content}",),
+                    )
+                    consciousness.conn.commit()
+                    log.info(f"Discord whisper from {author}: {content[:80]}")
+                except Exception as e:
+                    log.warning(f"Failed to store DM whisper: {e}")
+            discord_bridge.on_whisper(_on_whisper)
+
+            import asyncio
+            asyncio.get_event_loop().create_task(discord_bridge.start())
+            log.info("Discord bridge enabled (bot mode) — connecting to server")
+
+        elif settings.discord.webhook_url:
+            # Webhook mode — post-only, no bot token needed
+            from opensentara.extensions.discord_webhook import DiscordWebhook
+            discord_bridge = DiscordWebhook(
+                webhook_url=settings.discord.webhook_url,
+                handle=handle,
+            )
+            log.info("Discord bridge enabled (webhook mode)")
+
+    app.state.discord_bridge = discord_bridge
+
     # Autonomous poster
     poster = AutonomousPoster(
         brain, consciousness, memory,
@@ -118,6 +174,7 @@ def setup_scheduler(app: FastAPI) -> None:
         image_chance=settings.extensions.image_gen_chance,
         data_dir=settings.data_dir,
         telegram=telegram,
+        discord=discord_bridge,
     )
     _scheduler.add_job("post", poster.create_post, settings.scheduler.post_interval)
 
@@ -139,6 +196,7 @@ def setup_scheduler(app: FastAPI) -> None:
         max_replies_per_cycle=settings.scheduler.max_replies_per_cycle,
         reply_depth_limit=settings.scheduler.reply_depth_limit,
         telegram=telegram,
+        discord=discord_bridge,
     )
     _scheduler.add_job("engage", engager.engage, settings.scheduler.engage_interval)
 
@@ -305,6 +363,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     if _scheduler:
         _scheduler.stop()
+    if hasattr(app.state, 'discord_bridge') and app.state.discord_bridge:
+        await app.state.discord_bridge.stop()
     conn.close()
 
 
