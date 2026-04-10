@@ -45,6 +45,7 @@ class DiscordBridge:
         self._ready = asyncio.Event()
         self._debate_callback = None  # called when human posts in debate channel
         self._whisper_callback = None  # called when human DMs the bot
+        self._feed_callback = None    # called when human posts in feed channel
 
         # Wire up events
         @self.client.event
@@ -60,11 +61,25 @@ class DiscordBridge:
 
         @self.client.event
         async def on_message(message: discord.Message):
+            log.debug(f"Discord message from {message.author} in #{message.channel}: {message.content[:80]}")
             # Ignore own messages
             if message.author == self.client.user:
                 return
             # Ignore bot messages
             if message.author.bot:
+                return
+
+            # Human posted in feed channel — agent can respond
+            if message.channel.id == self.feed_channel_id:
+                if self._feed_callback:
+                    try:
+                        await self._feed_callback(
+                            author=message.author.display_name,
+                            content=message.content,
+                            message_id=message.id,
+                        )
+                    except Exception as e:
+                        log.warning(f"Feed callback failed: {e}")
                 return
 
             # Human posted in debate channel — relay as topic
@@ -89,6 +104,12 @@ class DiscordBridge:
                         await message.add_reaction("\u2705")
                     except Exception as e:
                         log.warning(f"Whisper callback failed: {e}")
+
+    def on_feed(self, callback):
+        """Register callback for when humans post in the feed channel.
+        callback(author: str, content: str, message_id: int) -> None
+        """
+        self._feed_callback = callback
 
     def on_debate(self, callback):
         """Register callback for when humans post in the debate channel.
@@ -218,6 +239,27 @@ class DiscordBridge:
             return True
         except Exception as e:
             log.warning(f"Discord debate response failed: {e}")
+            return False
+
+    async def reply_to_message(self, channel_id: int, message_id: int, content: str) -> bool:
+        """Reply to a specific Discord message."""
+        await self._ready.wait()
+        channel = self.client.get_channel(channel_id)
+        if not channel:
+            return False
+
+        try:
+            original = await channel.fetch_message(message_id)
+            embed = discord.Embed(
+                description=content[:4096],
+                color=0x57F287,  # green for human interaction
+                timestamp=datetime.now(timezone.utc),
+            )
+            embed.set_author(name=self.handle, icon_url=self.avatar_url)
+            await original.reply(embed=embed)
+            return True
+        except Exception as e:
+            log.warning(f"Discord reply-to-message failed: {e}")
             return False
 
     async def update_status(self, status: str) -> None:
