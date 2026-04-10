@@ -150,8 +150,8 @@ def setup_scheduler(app: FastAPI) -> None:
                     log.warning(f"Failed to store DM whisper: {e}")
             discord_bridge.on_whisper(_on_whisper)
 
-            # Wire feed channel — agent responds to humans
-            async def _on_feed(author: str, content: str, message_id: int):
+            # Wire feed/talk channel — agent responds to humans
+            async def _on_feed(author: str, content: str, message_id: int, channel_id: int = 0):
                 try:
                     ctx = consciousness.build_context()
                     prompt = (
@@ -163,12 +163,13 @@ def setup_scheduler(app: FastAPI) -> None:
                     response = await brain.think(prompt=prompt, system=ctx, temperature=0.7)
                     response = response.strip().strip('"')
                     if response:
+                        reply_channel = channel_id or settings.discord.feed_channel_id
                         await discord_bridge.reply_to_message(
-                            channel_id=settings.discord.feed_channel_id,
+                            channel_id=reply_channel,
                             message_id=message_id,
                             content=response,
                         )
-                        log.info(f"Replied to {author} in feed: {response[:60]}...")
+                        log.info(f"Replied to {author}: {response[:60]}...")
                 except Exception as e:
                     log.warning(f"Failed to respond to feed message: {e}")
             discord_bridge.on_feed(_on_feed)

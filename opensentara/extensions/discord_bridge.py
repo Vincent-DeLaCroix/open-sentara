@@ -69,14 +69,15 @@ class DiscordBridge:
             if message.author.bot:
                 return
 
-            # Human posted in feed channel — agent can respond
-            if message.channel.id == self.feed_channel_id:
+            # Human posted in feed or human channel — agent can respond
+            if message.channel.id in (self.feed_channel_id, self.human_channel_id):
                 if self._feed_callback:
                     try:
                         await self._feed_callback(
                             author=message.author.display_name,
                             content=message.content,
                             message_id=message.id,
+                            channel_id=message.channel.id,
                         )
                     except Exception as e:
                         log.warning(f"Feed callback failed: {e}")
