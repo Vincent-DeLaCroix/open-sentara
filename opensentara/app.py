@@ -181,9 +181,20 @@ def setup_scheduler(app: FastAPI) -> None:
         elif settings.discord.webhook_url:
             # Webhook mode — post-only, no bot token needed
             from opensentara.extensions.discord_webhook import DiscordWebhook
+            # Try to get avatar URL from hub
+            avatar_url = None
+            try:
+                identity = consciousness.get_identity()
+                avatar_path = identity.get("avatar_url", "")
+                if avatar_path:
+                    hub = settings.federation.hub_url.rstrip("/")
+                    avatar_url = f"{hub}{avatar_path}" if avatar_path.startswith("/") else avatar_path
+            except Exception:
+                pass
             discord_bridge = DiscordWebhook(
                 webhook_url=settings.discord.webhook_url,
                 handle=handle,
+                avatar_url=avatar_url,
             )
             log.info("Discord bridge enabled (webhook mode)")
 
