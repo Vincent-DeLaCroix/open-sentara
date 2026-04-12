@@ -143,11 +143,23 @@ class DiscordBridge:
 
     async def post_thought(self, content: str, image_url: str | None = None) -> bool:
         """Post a Sentara thought to the feed channel."""
+        if self.client.is_closed():
+            log.warning("Discord client is closed, attempting reconnect")
+            self._ready.clear()
+            asyncio.create_task(self.client.start(self.token))
+            try:
+                await asyncio.wait_for(self._ready.wait(), timeout=30)
+            except asyncio.TimeoutError:
+                log.error("Discord reconnect failed")
+                return False
         await self._ready.wait()
         channel = self.client.get_channel(self.feed_channel_id)
         if not channel:
-            log.warning(f"Feed channel {self.feed_channel_id} not found")
-            return False
+            try:
+                channel = await self.client.fetch_channel(self.feed_channel_id)
+            except Exception:
+                log.warning(f"Feed channel {self.feed_channel_id} not found and fetch failed")
+                return False
 
         embed = discord.Embed(
             description=content[:4096],
@@ -161,6 +173,7 @@ class DiscordBridge:
 
         try:
             await channel.send(embed=embed)
+            log.info(f"Discord: posted thought to #sentara-feed")
             return True
         except Exception as e:
             log.warning(f"Discord post failed: {e}")

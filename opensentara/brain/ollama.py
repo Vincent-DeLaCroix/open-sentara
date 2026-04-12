@@ -35,7 +35,7 @@ class OllamaBrain(BrainBackend):
 
         # Use curl — guaranteed to work across all platforms and Ollama versions
         proc = await asyncio.create_subprocess_exec(
-            "curl", "-s", "--max-time", "120",
+            "curl", "-s", "--max-time", "300",
             f"{self.url}/api/chat",
             "-d", payload,
             "-H", "Content-Type: application/json",
